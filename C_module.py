@@ -1,4 +1,5 @@
 from pycparser import parse_file, c_ast
+from math import log2
 
 class ComplexityVisitor(c_ast.NodeVisitor):
     def __init__(self):
@@ -10,13 +11,16 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         self.operands = set()    # Halstead Volume - Set of operands.
         self.operator_count = 0  # Halstead Volume - Operator count.
         self.operand_count = 0   # Halstead Volume - Operand count.
-        self.n1 = 0              # Halstead Volume - Distinct operators.
-        self.n2 = 0              # Halstead Volume - Distinct operands.
-        self.N1 = 0              # Halstead Volume - Total operators.
-        self.N2 = 0              # Halstead Volume - Total operands.
-        self.vocabulary = 0      # Halstead Volume - Vocabulary.
-        self.length = 0          # Halstead Volume - length.
-        self.volume = 0          # Halstead Volume - volume.
+        self.n1 = 0              # Halstead Volume - the number of distinct operators (n1).
+        self.n2 = 0              # Halstead Volume - the number of distinct operands (n2).
+        self.N1 = 0              # Halstead Volume - the total number of operators (N1).
+        self.N2 = 0              # Halstead Volume - the total number of operands (N2).
+        self.vocabulary = 0      # Halstead Volume - Program vocabulary (n).
+        self.lenght = 0          # Halstead Volume - Program length (N).
+        self.estimate_len = 0    # Halstead Volume - Estimated program lenght (^N).
+        self.volume = 0          # Halstead Volume - Volume (V).
+        self.difficulty = 0      # Halstead Volume - Difficulty (D).
+        self.effort = 0          # Halstead Volume - Effort (E).
 
     def analyse(self, filename):
             """## Main function of the class. Call all the functions."""
@@ -27,8 +31,11 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             self.print_cyclomatic_complexity()  # McCabe Complexity - Print the results of cc.
 
         
+    # CODE LENGHT
+
+
     # HALSTEAD VOLUME
-    def visit_Decl(self, node):   # Used for Halstead Volume
+    def visit_Decl(self, node):           # Used for Halstead Volume
         """## Procedure called when a variable is inicialized.
         This is necessary because pycparser library does not identify inicializations as a Assignment node."""
         if node.init is not None:
@@ -78,23 +85,30 @@ class ComplexityVisitor(c_ast.NodeVisitor):
     def calculate_halstead_volume(self):  # Used for Halstead Volume
         """## Procedure to calculate the Halstead volume.
         """
-        self.n1 = len(self.operators)  # Distinct operators
-        self.n2 = len(self.operands)   # Distinct operands
-        self.N1 = self.operator_count  # Total operators
-        self.N2 = self.operand_count   # Total operands
+        self.n1 = len(self.operators)  # Distinct operators.
+        self.n2 = len(self.operands)   # Distinct operands.
+        self.N1 = self.operator_count  # Total operators.
+        self.N2 = self.operand_count   # Total operands.
 
-        self.vocabulary = self.n1 + self.n2  # Calculate vocabulary
-        self.length = self.N1 + self.N2      # Calculate length
-        self.volume = self.length * (self.vocabulary and (self.vocabulary.bit_length() or 1))  # Calculate volume
+        self.vocabulary = self.n1 + self.n2                                    # Calculate vocabulary.
+        self.lenght = self.N1 + self.N2                                        # Calculate length.
+        self.estimate_len = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
+        self.volume = self.vocabulary * log2(self.vocabulary)                  # Calculate volume.
+        self.difficulty = (self.n1 / 2) * (self.N2 / self.n2)                  # Calculate difficulty.
+        self.effort = self.difficulty * self.volume                            # Calculate effort.
 
     def print_halstead_volume(self):      # Used for Halstead Volume
+        print("== HALSTEAD VOLUME ===============================")
         print(f"Distinct Operators (n1): {self.n1}")
-        print(f"Distinct Operands (n2): {self.n2}")
-        print(f"Total Operators (N1): {self.N1}")
-        print(f"Total Operands (N2): {self.N2}")
-        print(f"Program Vocabulary: {self.vocabulary}")
-        print(f"Program Length: {self.length}")
-        print(f"Volume: {self.volume}")
+        print(f"Distinct Operands (n2):  {self.n2}")
+        print(f"Total Operators (N1):    {self.N1}")
+        print(f"Total Operands (N2):     {self.N2}")
+        print(f"Program Vocabulary:      {self.vocabulary}")
+        print(f"Program Length:          {self.lenght}")
+        print(f"Estimated Lenght:        {self.estimate_len:.1f}")
+        print(f"Volume:                  {self.volume:.1f}")
+        print(f"Difficulty:              {self.difficulty}")
+        print(f"Effort:                  {self.effort:.1f}")
 
     def __print_operators__(self):  # UTIL
         """## Print the set of operators in the code.
@@ -167,10 +181,11 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 
     def print_cyclomatic_complexity(self):  # UTIL
         """## Print all the function name and his respective complexity"""
+        print(f"\n== COMPLEXIDADE CICLOMÁTICA ===========================")
         complexities = visitor.get_functions()
         for func_name, complexity in complexities.items():
-            print(f"A complexidade ciclomática da função '{func_name}' é: {complexity}")
-        print(f"Complexidade total do código é: {self.total_cyclomatic_complexity}")
+            print(f"Função '{func_name}' complexidade: {complexity}")
+        print(f"Complexidade total: {self.total_cyclomatic_complexity}")
 
 
 
@@ -179,5 +194,3 @@ if __name__ == "__main__":
     file = f"Examples/{filename}_pre_limpo.c"  # Arquivo pré-processado e limpo
     visitor = ComplexityVisitor()              # Define a classe
     visitor.analyse(file)
-    visitor.__print_operators__()
-    visitor.__print_operands__()
