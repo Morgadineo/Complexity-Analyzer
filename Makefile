@@ -1,40 +1,50 @@
 # Diretórios
 SRC_DIR = Examples
-FAKE_HEADERS = /home/morgado/.local/lib/pycparser/utils/fake_libc_include
+FAKE_HEADERS = /lib/pycparser/utils/fake_libc_include 
 
 # Variáveis de compilação
 CC = gcc
-CFLAGS = -E -nostdinc -I$(FAKE_HEADERS) -I/usr/include  # Inclua o caminho para cs50.h
-LIBDIR = /usr/lib  # Diretório onde libcs50.a está localizado
+CFLAGS = -E -nostdinc -I$(FAKE_HEADERS) -I/usr/include
+LIBDIR = /usr/lib
 LIBS = -lcs50
 
 # Encontra todos os arquivos .c no diretório Examples
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 
-# Define os arquivos pré-processados e limpos
-PREPROCESSED = $(SRCS:.c=_pre.c)
-CLEANED = $(SRCS:.c=_pre_limpo.c)
+# Define os arquivos limpos, pré-processados e compilados
+CLEANED = $(SRCS:.c=_limpo.c)
+PREPROCESSED = $(CLEANED:.c=_pre.c)
+EXECUTABLES = $(SRCS:.c=.out)
 
-# Regra padrão: pré-processar, limpar e compilar todos os arquivos
-all: clean compile
+# Regra padrão: limpar, pré-processar e compilar todos os arquivos
+all: clean_comments preprocess compile
 
-# Regra para pré-processar e limpar cada arquivo
-$(SRC_DIR)/%_pre_limpo.c: $(SRC_DIR)/%.c
+# Regra para limpar comentários de cada arquivo
+%_limpo.c: %.c
+	@echo "Limpando comentários de $<..."
+	@sed -e '/\/\*\*/,/\*\//s/.*//g' -e 's/\/\/.*//g' "$<" > "$@"
+
+# Regra para pré-processar cada arquivo limpo
+%_pre.c: %_limpo.c
 	@echo "Pré-processando $<..."
-	@$(CC) $(CFLAGS) -o "$(@D)/$*_pre.c" "$<"
-	@sed '/^#/d' "$(@D)/$*_pre.c" > "$@"
+	@$(CC) $(CFLAGS) -o "$@" "$<"
+	@sed '/^#/d' "$@" > "$@.tmp" && mv "$@.tmp" "$@"
 
-# Compilar os arquivos limpos com as bibliotecas
-compile: $(CLEANED)
-	@echo "Compilando com bibliotecas..."
-	@for file in $(CLEANED); do \
-		base=$${file%_pre_limpo.c}; \
-		echo "Compilando $$base.c..."; \
-		$(CC) $$base.c -o $$base.out -L$(LIBDIR) $(LIBS); \
-    done
+# Limpar comentários de todos os arquivos
+clean_comments: $(CLEANED)
+
+# Pré-processar todos os arquivos limpos
+preprocess: $(PREPROCESSED)
+
+# Compilar os arquivos pré-processados com as bibliotecas
+compile: $(EXECUTABLES)
+
+%.out: %_pre.c
+	@echo "Compilando $<..."
+	@$(CC) "$<" -o "$@" -L$(LIBDIR) $(LIBS)
 
 # Limpar arquivos gerados
 clean:
-	rm -f $(PREPROCESSED) $(CLEANED) $(SRC_DIR)/*.out
+	rm -f $(CLEANED) $(PREPROCESSED) $(EXECUTABLES)
 
-.PHONY: all clean compile
+.PHONY: all clean_comments preprocess compile clean
