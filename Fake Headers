@@ -1,0 +1,5 @@
+O pycparser utiliza "fake headers" no processo de pré-compilação, sendo necessário incluir a pasta contendo a breve descrição deles. Esta pasta se encontra no github oficial do projeto. Como o código que normalmente utilizamos contém a biblioteca do cs50 ou a genlib, é necessário criar um "fake header" próprio para essa biblioteca.
+Caso não possua o fake header da biblioteca, ocorrerá um erro no processo de pré-compilação.
+
+Para solucionar este erro, faça o download da biblioteca pelo link: 'https://github.com/eliben/pycparser'.
+O Makefile está configurado para buscar as fakeheader no caminho: '/lib/pycparser-main/utils/fake-headers', então, por simplicidade realize o download e mova ele para /lib
