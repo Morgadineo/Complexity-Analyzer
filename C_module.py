@@ -1,7 +1,7 @@
 from pycparser import parse_file, c_ast
 from math import log2
 from tabulate import tabulate
-
+from os import listdir
 
 class ComplexityVisitor(c_ast.NodeVisitor):
 	def __init__(self, filename):
@@ -11,7 +11,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		self.filename = filename                                              # Raw filename
 		self.file_dir = "Examples"                                            # Dir with the source file and the pre-compiled file
 		self.file_path = f"{self.file_dir}/{self.filename}"     # File path without sufix
-		self.file_clean = f"{self.file_path}_limpo_pre.c"    # Path to the pre-compiled file
+		self.file_clean = f"{self.file_path}.i"    # Path to the pre-compiled file
 		self.file_source = f"{self.file_path}.c"                       # Path to the source code
 
 		##########-- CODE INFOS --#############################################
@@ -111,6 +111,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		self.calculate_halstead_volume()
 
 	def print_complexities(self):
+		print(f"==================/ {self.filename} \\===================================")
 		header = ["Complexity", "Value"]
 		data = [["Total lines", self.total_lines],
 				["Effective lines", self.effective_lines],
@@ -129,13 +130,13 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 				["Delivered bugs", f"{self.delivered_bugs:.1f}"],
 				["CYCLOMATIC COMPLEXITY"],
 				["Total Cyclomatic Complexity", self.total_cyclomatic_complexity],
-				["COGNITIVE COMPLEXITY"],
+				["Cognitive Complexity"],
 				["Cognitve Complexity", self.total_cognitive_complexity],
 				]
 		print(tabulate(data, headers=header, tablefmt="grid", numalign="right"))
 		self.print_functions_complexities()
-		self.print_operators()
-		self.print_operands()
+		# self.print_operators()
+		# self.print_operands()
 
 	def print_operands(self):
 		header = ["Operand", "Total uses", "Used lines"]
@@ -506,7 +507,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			print(f"=============================================================\n{node}")
 		else:
 			if node.stmt.block_items:
-				self.cyclomatic_complexity += len(node.stmt.block_items) - 1
+				self.cyclomatic_complexity += len(node.stmt.block_items)
 			self.generic_visit(node)
 
 	def visit_Case(self, node):
@@ -579,11 +580,19 @@ def individual_analyse(filename):
 	visitor = ComplexityVisitor(filename)
 	visitor.print_analyse()
 
+def analyse_all():
+	for filename in listdir("Examples"):
+		if filename[-2:] == ".i":
+			pure_filename = filename[:-2]
+			individual_analyse(pure_filename)
 
 if __name__ == "__main__":
-	filename1 = "mario_less"
-	filename2 = "mario_more"
+	filename1 = "arthur.nilod.t@gmail.com_2_credit"
+	filename2 = "mpuTAD"
+	filename3 = "abrantesasf@computacaoraiz.com.br_1_credit"
+	filename4 = "credit"
 	# show_tree(filename2)
 	# compare(filename1, filename2)
 	# debuged_analyse(filename1)
-	individual_analyse(filename2)
+	# individual_analyse(filename1)
+	analyse_all()
