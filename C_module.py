@@ -75,14 +75,14 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		self.total_cognitive_complexity = 0    # Total cognitive complexity.
 		self.current_depth = 0                 # Actual deph level.
 		self.weights = {                       # Weight of statements and structures (Based on the article):
-			"sequence": 1,                     # "Code Complexity - A New Measure" de Jitender Kumar Chhabra.
-			"atomic": 1,
+			"declaration": 1,                     # "Code Complexity - A New Measure" de Jitender Kumar Chhabra.
+			"func_call": 1,
 			"if": 2,
 			"case": 3,
-			"for": 3,
+			"for": 4,
 			"while": 3,
 			"do while": 3,
-			"nested": 4,
+			"recursion": 4,
 			"constant": 1,
 			"array": 2,
 			"pointer": 3,
@@ -90,7 +90,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		}
 
 	###********************************************************************************************###
-	##                           FUNCTIONS                                                                                                   ##
+	##                           FUNCTIONS                                                                                     ##
 	###********************************************************************************************###
 
 	###-- UTILS FUNCTIONS --###################################################
@@ -156,16 +156,13 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 
 	def print_ast(self):
 		ast = parse_file(self.file_clean, use_cpp=False, )  # Create the AST using the pre-compiled and clean file.
-		ast.show(showcoord=True)  # Show the AST with the coordnates
+		ast.show(showcoord=False)  # Show the AST with the coordnates
 
 	def __debug_analyse__(self):
 		self.__DEBUG__ = True
 		ast = parse_file(self.file_clean, use_cpp=False)
 		self.visit(ast)
 
-	###-- COGNITIVE COMPLEXITY --###############################################
-
-	###-- CODE LENGHT --########################################################
 	def print_lenght(self):
 		headers = ["CODE INFOS", "VALUE"]
 		data = [["Effective lines", self.effective_lines],
@@ -194,9 +191,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 
 				self.effective_lines += 1
 
-	###-- HALSTEAD COMPLEXITY --################################################
-
-	def calculate_halstead_volume(self):  # Used for Halstead Volume
+	def calculate_halstead_volume(self):
 		"""## Procedure to calculate the Halstead volume.
 		"""
 		self.n1, self.N1 = self.__count_operators__()
@@ -212,7 +207,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		self.time_required  = self.effort / 18  # Calculate time to program (seconds).
 		self.delivered_bugs = self.effort ** (2 / 3) / 3000  # Calculate number of delivered bugs.
 
-	def print_halstead_volume(self):  # Used for Halstead Volume
+	def print_halstead_volume(self):  
 		headers = ["Halstead Volume", "Value"]
 		data = [["Distinct Operators (n1)", self.n1],
 				["Distinct Operands (n2)", self.n2],
@@ -230,9 +225,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 				]
 		print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
 
-	###-- CYCLOMATIC COMPLEXITY --#############################################
-
-	def print_functions_complexities(self):  # UTIL
+	def print_functions_complexities(self): 
 		"""## Print all the function name and his respective complexity"""
 		headers = ["Function Name", "Cyclomatic Complexity", "Cognitive Complexity"]
 		data = []
@@ -242,7 +235,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		print("\n")
 		print(tabulate(data, headers=headers, tablefmt="grid", numalign="right"))
 
-	###-- NODE UTILITIES --####################################################
+	###-- NODE UTILITIES --#######################################################
 	def __count_operands__(self):
 		distinct_operands = 0
 		total_operands = 0
@@ -317,22 +310,33 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 
 	def __add_statement_cog_c__(self, statement):
 		"""Add the statement cognitive complexity in the function"""
-		self.current_statement_complexity = self.weights[statement] + self.current_statement_complexity
-		self.total_cognitive_complexity += self.current_statement_complexity
-		self.functions_complexities[self.current_function][1] += self.current_statement_complexity
+		if statement == "declaration" or statement == "func_call":
+			self.total_cognitive_complexity += self.weights[statement] + self.current_statement_complexity
+			self.functions_complexities[self.current_function][1] += self.weights[statement] + self.current_statement_complexity
+		else: 
+			self.current_statement_complexity = self.weights[statement] + self.current_statement_complexity
+			self.total_cognitive_complexity += self.current_statement_complexity
+			self.functions_complexities[self.current_function][1] += self.current_statement_complexity
 
-	###-- VISIT NODE MODULES --################################################
+	def __verify_recursion__(self, func_name):
+		if func_name == self.current_function:
+			return True
+		return False
+		
+
+	###-- VISIT NODE MODULES --##################################################
 
 	def visit_Assignment(self, node):
 		if self.__DEBUG__:
 			print(f"=============================================================\nCOORD = {node.coord}\n{node}\n")
 		else:
 			self.__add_operator__(node, node.op)
+			self.__add_statement_cog_c__("declaration"	)
 			# Get assignment lvalue operand
 
 			self.generic_visit(node)
 
-	def visit_Decl(self, node):  # Used for Halstead Volume
+	def visit_Decl(self, node):  
 		"""## Procedure called when a declaration is inicialized.
 		This is necessary because pycparser library does not identify inicializations as a Assignment node."""
 		if self.__DEBUG__:
@@ -341,6 +345,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			if node.init is not None:
 				self.__add_operator__(node, '=')
 				self.__add_node_operands__(node)
+				self.__add_statement_cog_c__("declaration")
 				self.visit(node.init)
 			else:
 				self.generic_visit(node)
@@ -357,7 +362,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 															  []]
 		self.generic_visit(node)
 
-	def visit_BinaryOp(self, node):  # Used for Halstead Volume
+	def visit_BinaryOp(self, node):
 		"""## Procedure called when a binary operator node is visited.
 		Called when visit binary operations like +, -, *, /.
 		"""
@@ -367,7 +372,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			self.__add_operator__(node, node.op)
 			self.generic_visit(node)
 
-	def visit_UnaryOp(self, node):  # Used for Halstead Volume
+	def visit_UnaryOp(self, node):
 		"""## Procedure called when a unary operator node is visited.
 		Visit unary operations like -, ++, --.
 		"""
@@ -375,12 +380,16 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			print(f"=============================================================\n{node}")
 		else:
 			self.__add_operator__(node, node.op)
+			
+			if (node.op == "*"):
+				self.__add_statement_cog_c__("pointer")
+			
 			self.generic_visit(node)
 
 	def visit_ID(self, node):
 		self.__add_node_operands__(node)
 
-	def visit_Constant(self, node):  # Used for Halstead Volume
+	def visit_Constant(self, node):
 
 		"""## Procedure called when a constant/literal node is visited.
 		Visit constants (literals).
@@ -390,7 +399,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		else:
 			self.__add_node_operands__(node)
 
-	def visit_FuncDef(self, node):  # Used for McCabe Complexity and Cognitive Complexity
+	def visit_FuncDef(self, node):
 		"""## Procedure called when a FUNCTION DEFINITION node is find.
 		When a function is visited, self.current_function is defined with the function name and the function is
 		add in the dictionary. With function complexity is analysed separated.
@@ -423,9 +432,15 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			if node.name.name in self.functions_info:
 				self.functions_info[node.name.name][3].append(self.__get_line__(node))
 			self.__add_operator__(node, node.name.name)
-			self.generic_visit(node)
+			
+			if (self.__verify_recursion__(node.name.name)):
+				self.__add_statement_cog_c__("recursion")
+			else:
+				self.__add_statement_cog_c__("func_call")
+			
+			(node)
 
-	def visit_If(self, node):  # Used for McCabe Complexity
+	def visit_If(self, node):
 		"""## Procedure called when an IF node is visited.
 		*cyclomatic_complexity += 1*
 		"""
@@ -444,7 +459,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 	
 			self.current_statement_complexity = 0
 		
-	def visit_For(self, node):  # Used for McCabe Complexity
+	def visit_For(self, node):
 		"""## Procedure called when a FOR node is visited.
 		*cyclomatic_complexity += 1*
 		"""
@@ -462,7 +477,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			self.generic_visit(node)
 			self.current_statement_complexity = 0
 			
-	def visit_While(self, node):  # Used for McCabe Complexity
+	def visit_While(self, node):
 		"""## Procedure called when a WHILE node is visited.
 		*cyclomatic_complexity += 1*
 		"""
@@ -481,7 +496,6 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			self.current_statement_complexity = 0
 
 	def visit_DoWhile(self, node):
-		# Used for McCabe Complexity
 		"""## Procedure called when a DoWHILE node is visited.
 		*cyclomatic_complexity += 1*
 		"""
@@ -499,7 +513,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			self.generic_visit(node)
 			self.current_statement_complexity = 0
 
-	def visit_Switch(self, node):  # Used for McCabe Complexity
+	def visit_Switch(self, node):
 		"""## Procedure called when a SWITCH node is visited.
 		*cyclomatic_complexity += (quantity of case statements)*
 		"""
@@ -524,7 +538,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			self.current_statement_complexity = 0
 
 
-###-- OUT CLASS --#########################################################
+###-- OUT CLASS --###########################################################
 def debuged_analyse(filename):
 	visitor = ComplexityVisitor(filename)
 	visitor.__debug_analyse__()
@@ -534,14 +548,13 @@ def show_tree(filename):
 	visitor = ComplexityVisitor(filename)
 	visitor.print_ast()
 
-
 def compare(filename1, filename2):
 	visitor1 = ComplexityVisitor(filename1)
 	visitor2 = ComplexityVisitor(filename2)
 	visitor1.analyse()
 	visitor2.analyse()
 
-	headers = ["Metric", f"{filename1}", f"{filename2}", f"{filename2} - {filename1}"]
+	headers = ["Metric", f"{filename1[:5]}", f"{filename2[:5]}", f"{filename2[:5]} - {filename1[:5]}"]
 	data = [["Total lines", visitor1.total_lines, visitor2.total_lines, (visitor2.total_lines - visitor1.total_lines)],
 			["Effective lines", visitor1.effective_lines, visitor2.effective_lines,
 			 (visitor2.effective_lines - visitor1.effective_lines)],
@@ -587,12 +600,12 @@ def analyse_all():
 			individual_analyse(pure_filename)
 
 if __name__ == "__main__":
-	filename1 = "arthur.nilod.t@gmail.com_2_credit"
+	filename1 = "pointer"
 	filename2 = "mpuTAD"
-	filename3 = "abrantesasf@computacaoraiz.com.br_1_credit"
-	filename4 = "credit"
-	# show_tree(filename2)
-	# compare(filename1, filename2)
+	filename3 = "lucaslucklux@gmail.com_4_credit"
+	filename4 = "cash2"
+	# show_tree(filename1)
+	# compare(filename3, filename1)
 	# debuged_analyse(filename1)
-	# individual_analyse(filename1)
-	analyse_all()
+	individual_analyse(filename1	)
+	# analyse_all()
