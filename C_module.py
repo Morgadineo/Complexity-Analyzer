@@ -133,7 +133,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 				["Cognitive Complexity"],
 				["Cognitve Complexity", self.total_cognitive_complexity],
 				]
-		print(tabulate(data, headers=header, tablefmt="grid", numalign="right"))
+		print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
 		self.print_functions_complexities()
 		# self.print_operators()
 		# self.print_operands()
@@ -227,13 +227,14 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 
 	def print_functions_complexities(self): 
 		"""## Print all the function name and his respective complexity"""
+		print(f"=== {self.filename} ===")
 		headers = ["Function Name", "Cyclomatic Complexity", "Cognitive Complexity"]
 		data = []
 		for func_name in self.functions_complexities.keys():
 			data.append(
 				[func_name, self.functions_complexities[func_name][0], self.functions_complexities[func_name][1]])
 		print("\n")
-		print(tabulate(data, headers=headers, tablefmt="grid", numalign="right"))
+		print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
 
 	###-- NODE UTILITIES --#######################################################
 	def __count_operands__(self):
@@ -599,13 +600,24 @@ def analyse_all():
 			pure_filename = filename[:-2]
 			individual_analyse(pure_filename)
 
+def compare_to_all(f1):
+	for filename in listdir("Examples"):
+		if filename[-2:] == ".i":
+			pure_filename = filename[:-2]
+			print(f"==================/ {f1} compared to {pure_filename}\\================================")
+			compare(f1, pure_filename)
+			print("\n\n\n")
+
 if __name__ == "__main__":
-	filename1 = "pointer"
-	filename2 = "mpuTAD"
-	filename3 = "lucaslucklux@gmail.com_4_credit"
-	filename4 = "cash2"
-	# show_tree(filename1)
-	# compare(filename3, filename1)
-	# debuged_analyse(filename1)
-	individual_analyse(filename1	)
-	# analyse_all()
+    f1 = "cleyvv@gmail.com_1_distancia" 
+    f2 = "cola_2"
+    f3 = "cola_3"
+    f4 = "cola_4"
+    f5 = "cola_5"
+    
+    # show_tree("cod_2")
+    #compare (f1, "c")
+    compare_to_all(f1)
+    # debuged_analyse(filename1)
+   # individual_analyse("cod_2")
+    # analyse_all()
