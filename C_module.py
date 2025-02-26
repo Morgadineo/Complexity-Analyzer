@@ -170,16 +170,21 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
 
 	def count_lines(self):
-		"""Count the total lines and the effective lines (non-empty and not comments)."""
+		"""Count the total lines and the effective lines (non-empty, not comment and { or })."""
 		with open(self.file_source) as file:
 			lines = file.readlines()
 			self.total_lines = len(lines)
 			in_block_comment = False
 			for line in lines:
 				stripped_line = line.strip()
+
 				if in_block_comment:
 					if "*/" in stripped_line:
 						in_block_comment = False
+					continue
+				
+				# Remove one line block comments
+				if stripped_line[:2] == "/*" and stripped_line[-2:] == "*/":
 					continue
 
 				if "/*" in stripped_line:
@@ -188,7 +193,10 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 
 				if not stripped_line or stripped_line.startswith("//"):
 					continue
-
+				
+				if stripped_line == '{' or stripped_line == '}':
+					continue
+				
 				self.effective_lines += 1
 
 	def calculate_halstead_volume(self):
@@ -558,7 +566,7 @@ def compare(filename1, filename2):
 	headers = ["Metric", f"{filename1[:5]}", f"{filename2[:5]}", f"{filename2[:5]} - {filename1[:5]}"]
 	data = [["Total lines", visitor1.total_lines, visitor2.total_lines, (visitor2.total_lines - visitor1.total_lines)],
 			["Effective lines", visitor1.effective_lines, visitor2.effective_lines,
-			 (visitor2.effective_lines - visitor1.effective_lines)],
+			(visitor2.effective_lines - visitor1.effective_lines)],
 			["Count of distinct operators", visitor1.n1, visitor2.n1,
 			 (visitor2.n1 - visitor1.n1)],
 			["Count of distinct operands", visitor1.n2, visitor2.n2,
@@ -609,15 +617,11 @@ def compare_to_all(f1):
 			print("\n\n\n")
 
 if __name__ == "__main__":
-    f1 = "cleyvv@gmail.com_1_distancia" 
-    f2 = "cola_2"
-    f3 = "cola_3"
-    f4 = "cola_4"
-    f5 = "cola_5"
-    
+    gabarito= "abrantesasf@computacaoraiz.com.br_1_temperatura"
+
     # show_tree("cod_2")
     #compare (f1, "c")
-    compare_to_all(f1)
+    compare_to_all(gabarito)
     # debuged_analyse(filename1)
-   # individual_analyse("cod_2")
+    # individual_analyse(gabarito)
     # analyse_all()
