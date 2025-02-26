@@ -70,12 +70,17 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		self.delivered_bugs = 0  # Estimated number of bugs (errors).
 
 		##########-- COGNITIVE COMPLEXITY --###################################
+		# cognitive_modifiers -> DICT
+		# [0] -> STR | "Statement name"
+		# [1] -> INT | Node coord
+		# [2] -> INT | Cognitive Complexity modifiers
+		self.cognitive_modifiers = dict() # Stores all the statements that add cognitive complexity
 		self.current_statement = None          # The current statement
 		self.current_statement_complexity = 0  # The current statement complexity
 		self.total_cognitive_complexity = 0    # Total cognitive complexity.
 		self.current_depth = 0                 # Actual deph level.
 		self.weights = {                       # Weight of statements and structures (Based on the article):
-			"declaration": 1,                     # "Code Complexity - A New Measure" de Jitender Kumar Chhabra.
+			"declaration": 1,                     # "Code Complexity - A New Measure" de Jitender Kumar Chhabra. (ADAPTADO)
 			"func_call": 1,
 			"if": 2,
 			"case": 3,
@@ -135,8 +140,8 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 				]
 		print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
 		self.print_functions_complexities()
-		# self.print_operators()
-		# self.print_operands()
+		self.print_operators()
+		self.print_operands()
 
 	def print_operands(self):
 		header = ["Operand", "Total uses", "Used lines"]
@@ -317,15 +322,16 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		except AttributeError:
 			return node.type.type.names[0]
 
-	def __add_statement_cog_c__(self, statement):
+	def __add_statement_cog_c__(self, statement, node):
 		"""Add the statement cognitive complexity in the function"""
-		if statement == "declaration" or statement == "func_call":
-			self.total_cognitive_complexity += self.weights[statement] + self.current_statement_complexity
-			self.functions_complexities[self.current_function][1] += self.weights[statement] + self.current_statement_complexity
-		else: 
+		cognitive_modifier = self.weights[statement] + self.current_statement_complexity # Statement Weight + Nested Weight
+		
+		# Declaration and func_call do not alter the nested weight.
+		if not (statement == "declaration" or statement == "func_call"):
 			self.current_statement_complexity = self.weights[statement] + self.current_statement_complexity
-			self.total_cognitive_complexity += self.current_statement_complexity
-			self.functions_complexities[self.current_function][1] += self.current_statement_complexity
+		
+		self.total_cognitive_complexity += cognitive_modifier
+		self.functions_complexities[self.current_function][1] += cognitive_modifier
 
 	def __verify_recursion__(self, func_name):
 		if func_name == self.current_function:
@@ -340,7 +346,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			print(f"=============================================================\nCOORD = {node.coord}\n{node}\n")
 		else:
 			self.__add_operator__(node, node.op)
-			self.__add_statement_cog_c__("declaration"	)
+			self.__add_statement_cog_c__("declaration", node)
 			# Get assignment lvalue operand
 
 			self.generic_visit(node)
@@ -354,7 +360,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			if node.init is not None:
 				self.__add_operator__(node, '=')
 				self.__add_node_operands__(node)
-				self.__add_statement_cog_c__("declaration")
+				self.__add_statement_cog_c__("declaration", node)
 				self.visit(node.init)
 			else:
 				self.generic_visit(node)
@@ -391,7 +397,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			self.__add_operator__(node, node.op)
 			
 			if (node.op == "*"):
-				self.__add_statement_cog_c__("pointer")
+				self.__add_statement_cog_c__("pointer", node)
 			
 			self.generic_visit(node)
 
@@ -443,11 +449,11 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			self.__add_operator__(node, node.name.name)
 			
 			if (self.__verify_recursion__(node.name.name)):
-				self.__add_statement_cog_c__("recursion")
+				self.__add_statement_cog_c__("recursion", node)
 			else:
-				self.__add_statement_cog_c__("func_call")
+				self.__add_statement_cog_c__("func_call", node)
 			
-			(node)
+			self.generic_visit(node)
 
 	def visit_If(self, node):
 		"""## Procedure called when an IF node is visited.
@@ -462,7 +468,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			
 			self.__add_operator__(node, statement)
 			
-			self.__add_statement_cog_c__(statement)
+			self.__add_statement_cog_c__(statement, node)
 			
 			self.generic_visit(node)
 	
@@ -481,7 +487,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			
 			self.__add_operator__(node, statement)
 			
-			self.__add_statement_cog_c__(statement)
+			self.__add_statement_cog_c__(statement, node)
 			
 			self.generic_visit(node)
 			self.current_statement_complexity = 0
@@ -499,7 +505,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			
 			self.__add_operator__(node, statement)
 			
-			self.__add_statement_cog_c__(statement)
+			self.__add_statement_cog_c__(statement, node)
 				
 			self.generic_visit(node)
 			self.current_statement_complexity = 0
@@ -517,7 +523,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			
 			self.__add_operator__(node, statement)
 			
-			self.__add_statement_cog_c__(statement)
+			self.__add_statement_cog_c__(statement, node)
 				
 			self.generic_visit(node)
 			self.current_statement_complexity = 0
@@ -541,7 +547,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 			
 			statement = 'case'
 			
-			self.__add_statement_cog_c__(statement)
+			self.__add_statement_cog_c__(statement, node)
 			
 			self.generic_visit(node)
 			self.current_statement_complexity = 0
@@ -563,7 +569,7 @@ def compare(filename1, filename2):
 	visitor1.analyse()
 	visitor2.analyse()
 
-	headers = ["Metric", f"{filename1[:5]}", f"{filename2[:5]}", f"{filename2[:5]} - {filename1[:5]}"]
+	headers = ["Metric", f"{filename1[:5]}", f"{filename2[:5]}", f"{filename2[:5]} has"]
 	data = [["Total lines", visitor1.total_lines, visitor2.total_lines, (visitor2.total_lines - visitor1.total_lines)],
 			["Effective lines", visitor1.effective_lines, visitor2.effective_lines,
 			(visitor2.effective_lines - visitor1.effective_lines)],
@@ -602,11 +608,14 @@ def individual_analyse(filename):
 	visitor = ComplexityVisitor(filename)
 	visitor.print_analyse()
 
-def analyse_all():
+def analyse_all(debug=0):
 	for filename in listdir("Examples"):
 		if filename[-2:] == ".i":
 			pure_filename = filename[:-2]
-			individual_analyse(pure_filename)
+			if not debug:
+				individual_analyse(pure_filename)
+			else:
+				debuged_analyse(pure_filename)
 
 def compare_to_all(f1):
 	for filename in listdir("Examples"):
@@ -618,10 +627,10 @@ def compare_to_all(f1):
 
 if __name__ == "__main__":
     gabarito= "abrantesasf@computacaoraiz.com.br_1_temperatura"
-
+    f1 = "arthur.fabres@gmail.com_1_temperatura"
     # show_tree("cod_2")
     #compare (f1, "c")
-    compare_to_all(gabarito)
-    # debuged_analyse(filename1)
-    # individual_analyse(gabarito)
-    # analyse_all()
+    # compare_to_all(gabarito)
+    # debuged_analyse(
+    # individual_analyse(f1)
+    analyse_all()
