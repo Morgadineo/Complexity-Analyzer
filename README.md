@@ -7,30 +7,34 @@ linguagem Python.
 
 O Analisador de Complexidades C atualmente trabalha com as seguintes
 complexidades:
-    [X] Quantidade de linhas:
-        * Contagem de linhas totais;
-        * Contagem de linhas efetivas.
-    [X] Complexidade Ciclomática:
-        * do programa todo;
-        * de cada subprograma;
-    [X] Métricas de Halstead:
-        * Quantidade de operadores (n1);
-        * Quantidade de operandos (n2);
-        * Quantidade de operadores distintos (N1);
-        * Quantidade de operandos distintos (N2);
-        * Vocabulário do programa (n);
-        * Tamanho do programa (N);
-        * Tamanho estimado do programa (^N);
-        * Volume do programa (V);
-        * Dificuldade do programa (D);
-        * Nível do programa (L);
-        * Inteligência do programa (I);
-        * Custo do programa (E);
-        * Tempo requerido para programar (T);
-        * Quantidade de Erros estimada.
-    [X] Complexidade Cognitiva:
-        * do programa todo;
-        * de cada subprograma; 
+* [X] Quantidade de linhas:
+    * Contagem de linhas totais;
+    * Contagem de linhas efetivas.
+* [X] Complexidade Ciclomática:
+    * do programa todo;
+    * de cada subprograma;
+* [X] Métricas de Halstead:
+    * Quantidade de operadores (n1);
+    * Quantidade de operandos (n2);
+    * Quantidade de operadores distintos (N1);
+    * Quantidade de operandos distintos (N2);
+    * Vocabulário do programa (n);
+    * Tamanho do programa (N);
+    * Tamanho estimado do programa (^N);
+    * Volume do programa (V);
+    * Dificuldade do programa (D);
+    * Nível do programa (L);
+    * Inteligência do programa (I);
+    * Custo do programa (E);
+    * Tempo requerido para programar (T);
+    * Quantidade de Erros estimada.
+* [X] Complexidade Cognitiva:
+    * do programa todo;
+    * de cada subprograma; 
+
+## Significado de cada métrica:
+
+(...)
 
 ## Como é feito a análise?
 
@@ -78,6 +82,8 @@ pasta com as fake-headers do pycparser.
 
 O arquivo 'Fake Header.txt' possui mais informações e detalhes sobre as
 fake-headers do pycparser.
+
+(...)
 
 ## OUTPUTS (desatualizado)
 ### Complexity
