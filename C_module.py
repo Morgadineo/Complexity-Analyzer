@@ -8,12 +8,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		##########-- UTILS VARIABLES --########################################
 		self.__DEBUG__ = False
 		##-- FILE --##
-		self.filename = filename                                              # Raw filename
-		self.file_dir = "Examples"                                            # Dir with the source file and the pre-compiled file
-		self.file_path = f"{self.file_dir}/{self.filename}"     # File path without sufix
-		self.file_clean = f"{self.file_path}.i"    # Path to the pre-compiled file
-		self.file_source = f"{self.file_path}.c"                       # Path to the source code
-
+		self.filename = filename                             # Raw filename
+		self.file_dir = "Examples"                           # Dir with the source file and the pre-compiled file
+		self.file_path = f"{self.file_dir}/{self.filename}"  # File path without sufix
+		self.file_clean = f"{self.file_path}.i"              # Path to the pre-compiled file
+		self.file_source = f"{self.file_path}.c"             # Path to the source code
+        
 		##########-- CODE INFOS --#############################################
 
 		# VARIABLE: functions_info -> Dict -> STRING: ARRAY
@@ -80,7 +80,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		self.total_cognitive_complexity = 0    # Total cognitive complexity.
 		self.current_depth = 0                 # Actual deph level.
 		self.weights = {                       # Weight of statements and structures (Based on the article):
-			"declaration": 1,                     # "Code Complexity - A New Measure" de Jitender Kumar Chhabra. (ADAPTADO)
+			"declaration": 1,                  # "Code Complexity - A New Measure" de Jitender Kumar Chhabra. (ADAPTADO)
 			"func_call": 1,
 			"if": 2,
 			"case": 3,
@@ -102,15 +102,15 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 
 	def print_analyse(self):
 		"""## Main function of the class. Call all the complexity functions and print the results."""
-		ast = parse_file(self.file_clean, use_cpp=False)  # Create the AST using the pre-compiled and clean file.
+		ast = parse_file(self.file_clean, use_cpp=False)
 		self.visit(ast)
 		self.count_lines()
-		self.calculate_halstead_volume()  # Halstead Volume - Calculate the Halstead Volume.
+		self.calculate_halstead_volume()
 		self.print_complexities()
 
 	def analyse(self):
 		"""## Main function of the class. Call all the complexity calculate functions."""
-		ast = parse_file(self.file_clean, use_cpp=False)  # Create the AST using the pre-compiled and clean file.
+		ast = parse_file(self.file_clean, use_cpp=False) 
 		self.visit(ast)
 		self.count_lines()
 		self.calculate_halstead_volume()
@@ -428,7 +428,6 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		self.__add_node_operands__(node)
 
 	def visit_Constant(self, node):
-
 		"""## Procedure called when a constant/literal node is visited.
 		Visit constants (literals).
 		"""
