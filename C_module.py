@@ -210,6 +210,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		self.n1, self.N1 = self.__count_operators__()
 		self.n2, self.N2 = self.__count_operands__()
 
+<<<<<<< HEAD
 		self.vocabulary     = self.n1 + self.n2  # Calculate vocabulary.
 		self.lenght         = self.N1 + self.N2  # Calculate length.
 		self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
@@ -219,6 +220,17 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		self.effort         = self.difficulty * self.volume  # Calculate effort.
 		self.time_required  = self.effort / 18  # Calculate time to program (seconds).
 		self.delivered_bugs = self.effort ** (2 / 3) / 3000  # Calculate number of delivered bugs.
+=======
+		self.vocabulary     = self.n1 + self.n2                                  # Calculate vocabulary.
+        self.lenght         = self.N1 + self.N2                                  # Calculate length.
+		self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
+		self.volume         = self.lenght * log2(self.vocabulary)                # Calculate volume.
+		self.difficulty     = (self.n1 / 2) * (self.N2 / self.n2)                # Calculate difficulty.
+		self.level          = 1 / self.difficulty                                # Calculate program level.
+		self.effort         = self.difficulty * self.volume                      # Calculate effort.
+		self.time_required  = self.effort / 18                                   # Calculate time to program (seconds).
+		self.delivered_bugs = self.effort ** (2 / 3) / 3000                      # Calculate number of delivered bugs.
+>>>>>>> 1123caf (Update code)
 
 	def print_halstead_volume(self):  
 		headers = ["Halstead Volume", "Value"]
@@ -322,11 +334,22 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 		except AttributeError:
 			return node.type.type.names[0]
 
+<<<<<<< HEAD
+=======
+	def __add_statement_modifier__(self, statement, node):
+		"""  Function to add the statement in the self.cognitive_modifier dict  """
+        self.cognitive_modifiers
+
+>>>>>>> 1123caf (Update code)
 	def __add_statement_cog_c__(self, statement, node):
 		"""Add the statement cognitive complexity in the function"""
 		cognitive_modifier = self.weights[statement] + self.current_statement_complexity # Statement Weight + Nested Weight
 		
+<<<<<<< HEAD
 		# Declaration and func_call do not alter the nested weight.
+=======
+		# Declaration and func_call do not alter the nested weight.	
+>>>>>>> 1123caf (Update code)
 		if not (statement == "declaration" or statement == "func_call"):
 			self.current_statement_complexity = self.weights[statement] + self.current_statement_complexity
 		
