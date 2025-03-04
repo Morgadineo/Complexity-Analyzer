@@ -7,6 +7,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
     def __init__(self, filename):
         ##########-- UTILS VARIABLES --########################################
         self.__DEBUG__ = False
+        
         ##-- FILE --##
         self.filename = filename                             # Raw filename
         self.file_dir = "Examples"                           # Dir with the source file and the pre-compiled file
@@ -15,6 +16,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         self.file_source = f"{self.file_path}.c"             # Path to the source code
         
         ##########-- CODE INFOS --#############################################
+        self.functions_called = set()
 
         # VARIABLE: functions_info -> Dict -> STRING: ARRAY
         #  Store functions information in array in order:
@@ -40,6 +42,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         self.current_function = None              # Current visiting function.
 
         ##########-- HALSTEAD COMPLEXITY --####################################
+        self.current_operator = None
 
         # Operators informations
         # OPERATOR -> ()
@@ -253,6 +256,8 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 ["Delivered bugs", self.delivered_bugs],
                 ]
         print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
+        self.print_operators(); 
+        self.print_operands();
 
     def print_functions_complexities(self): 
         """Print all the function name and his respective cyclomatic and
@@ -300,11 +305,17 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 node_op = node.name
             case "ID":
                 node_op = node.name
+                # Its a id extern to a operator.
+                # I make this to stop consider functions calls as a operand
+                if not self.current_operator:
+                   return 
+
             case "ArrayRef":
                 node_op = node.lvalue.name.name
+                print("YASGFEYAYGFAWYG")
             case "Constant":
                 node_op = node.value
-
+        
         if not node_op in self.operands_info.keys():
             self.operands_info[node_op] = [self.__get_line__(node)]
         else:
@@ -365,11 +376,14 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         if self.__DEBUG__:
             print(f"=============================================================\nCOORD = {node.coord}\n{node}\n")
         else:
+            self.current_operator = True
+
             self.__add_operator__(node, node.op)
             self.__add_statement_cog_c__("declaration", node)
             # Get assignment lvalue operand
 
             self.generic_visit(node)
+            self.current_operator = False
 
     def visit_Decl(self, node):  
         """## Procedure called when a declaration is inicialized.
@@ -378,10 +392,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             print(f"=============================================================\n{node}")
         else:
             if node.init is not None:
+                self.current_operator = True
                 self.__add_operator__(node, '=')
                 self.__add_node_operands__(node)
                 self.__add_statement_cog_c__("declaration", node)
                 self.visit(node.init)
+                self.current_operator = False
             else:
                 self.generic_visit(node)
 
@@ -404,8 +420,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         if self.__DEBUG__:
             print(f"=============================================================\n{node}")
         else:
+            self.current_operator = True
+
             self.__add_operator__(node, node.op)
             self.generic_visit(node)
+
+            self.current_operator = False
 
     def visit_UnaryOp(self, node):
         """## Procedure called when a unary operator node is visited.
@@ -414,12 +434,15 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         if self.__DEBUG__:
             print(f"=============================================================\n{node}")
         else:
+            self.current_operator = True
+
             self.__add_operator__(node, node.op)
             
             if (node.op == "*"):
                 self.__add_statement_cog_c__("pointer", node)
             
             self.generic_visit(node)
+            self.current_operator = False
 
     def visit_ID(self, node):
         self.__add_node_operands__(node)
@@ -463,6 +486,8 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         if self.__DEBUG__:
             print(f"=============================================================\n{node}")
         else:
+            self.functions_called.add(node.name.name)
+
             if node.name.name in self.functions_info:
                 self.functions_info[node.name.name][3].append(self.__get_line__(node))
             self.__add_operator__(node, node.name.name)
@@ -485,7 +510,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             
             statement = 'if'
             
-            self.__add_operator__(node, statement)
+            # self.__add_operator__(node, statement)
             
             self.__add_statement_cog_c__(statement, node)
             
@@ -504,7 +529,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             
             statement = 'for'
             
-            self.__add_operator__(node, statement)
+            # self.__add_operator__(node, statement)
             
             self.__add_statement_cog_c__(statement, node)
             
@@ -522,7 +547,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             
             statement = 'while'
             
-            self.__add_operator__(node, statement)
+            # self.__add_operator__(node, statement)
             
             self.__add_statement_cog_c__(statement, node)
                 
@@ -540,7 +565,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             
             statement = 'do while'
             
-            self.__add_operator__(node, statement)
+            # self.__add_operator__(node, statement)
             
             self.__add_statement_cog_c__(statement, node)
                 
@@ -570,6 +595,14 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             
             self.generic_visit(node)
             self.current_statement_complexity = 0
+    
+    def visit_ArrayRef(self, node):
+        self.current_operator = True
+
+        self.__add_operator__(node, '[]')
+
+        self.generic_visit(node)
+        self.current_operator = False
 
 
 ###-- OUT CLASS --###########################################################
@@ -645,11 +678,12 @@ def compare_to_all(f1):
             print("\n\n\n")
 
 if __name__ == "__main__":
-    gabarito= "abrantesasf@computacaoraiz.com.br_1_temperatura"
-    f1 = "arthur.fabres@gmail.com_1_temperatura"
-    # show_tree("cod_2")
+    cod1 = "bubble_sort_1"
+    cod2 = "bubble_sort_2"
+    t = "cash"
+    # show_tree(cod1)
     # compare (f1, "c")
     # compare_to_all(gabarito)
-    # debuged_analyse(
-    # individual_analyse(f1)
-    analyse_all()
+    # debuged_analyse(cod1)
+    individual_analyse(cod1)
+    # analyse_all()
