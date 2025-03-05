@@ -140,7 +140,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 ["Cognitive Complexity"],
                 ["Cognitve Complexity", self.total_cognitive_complexity],
                 ]
-        print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
+        print(tabulate(data, headers=header, tablefmt="grid", numalign="right"))
         self.print_functions_complexities()
         self.print_operators()
         self.print_operands()
@@ -296,26 +296,39 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         else:
             self.operators_info[node_op].append(self.__get_line__(node))
 
+    def get_node_value(self, node):
+        """Function to get the inner value of a node.
+
+        Respective output for node type:
+
+        CONSTANT      : (int) constant value;
+        ID            : (str) "variable name";
+        BinaryOperator: (tuple) ("op", "left value" "right value")
+        """
+        if isinstance(node, c_ast.BinaryOp):
+            return (node.op, self.get_node_value(node.left),
+                    self.get_node_value(node.right))
+        elif isinstance(node, c_ast.Constant):
+            return node.value
+        elif isinstance(node, c_ast.UnaryOp):
+            return node.expr.name
+        elif isinstance(node, c_ast.ID):
+            return node.name
+
+
     def __add_node_operands__(self, node):
         node_name = node.__class__.__name__
-        node_op = None
+        node_op = self.get_node_value(node)
 
         match node_name:
-            case "Decl":
-                node_op = node.name
-            case "ID":
-                node_op = node.name
-                # Its a id extern to a operator.
-                # I make this to stop consider functions calls as a operand
-                if not self.current_operator:
-                   return 
-
             case "ArrayRef":
-                node_op = node.lvalue.name.name
-                print("YASGFEYAYGFAWYG")
-            case "Constant":
-                node_op = node.value
-        
+                vector_name = node.name.name
+                vector_index = self.get_node_value(node.subscript)
+                if type(vector_index) is tuple:
+                    vector_index = f"{vector_index[1]} {vector_index[0]} {vector_index[2]}"
+                
+                node_op = f"{vector_name}[{vector_index}]"
+
         if not node_op in self.operands_info.keys():
             self.operands_info[node_op] = [self.__get_line__(node)]
         else:
@@ -423,6 +436,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             self.current_operator = True
 
             self.__add_operator__(node, node.op)
+            self.__add_node_operands__(node)
             self.generic_visit(node)
 
             self.current_operator = False
@@ -437,7 +451,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             self.current_operator = True
 
             self.__add_operator__(node, node.op)
-            
+            self.__add_node_operands__(node)
             if (node.op == "*"):
                 self.__add_statement_cog_c__("pointer", node)
             
@@ -445,7 +459,8 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             self.current_operator = False
 
     def visit_ID(self, node):
-        self.__add_node_operands__(node)
+        # self.__add_node_operands__(node)
+        return 
 
     def visit_Constant(self, node):
         """## Procedure called when a constant/literal node is visited.
@@ -600,6 +615,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         self.current_operator = True
 
         self.__add_operator__(node, '[]')
+        self.__add_node_operands__(node)
 
         self.generic_visit(node)
         self.current_operator = False
@@ -680,7 +696,7 @@ def compare_to_all(f1):
 if __name__ == "__main__":
     cod1 = "bubble_sort_1"
     cod2 = "bubble_sort_2"
-    t = "cash"
+    t = "teste"
     # show_tree(cod1)
     # compare (f1, "c")
     # compare_to_all(gabarito)
