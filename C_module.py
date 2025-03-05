@@ -42,7 +42,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         self.current_function = None              # Current visiting function.
 
         ##########-- HALSTEAD COMPLEXITY --####################################
-        self.current_operator = None
+        self.current_func_call = False
 
         # Operators informations
         # OPERATOR -> ()
@@ -291,6 +291,10 @@ class ComplexityVisitor(c_ast.NodeVisitor):
     def __add_operator__(self, node, node_op):
         """Function to add a operator and initialize the array of calls, or
         append the call."""
+        # The ++ operator is named p++, so remove the p.
+        if node_op == 'p++' or node_op == 'p--':
+            node_op = node_op[1:] 
+
         if not node_op in self.operators_info.keys():
             self.operators_info[node_op] = [self.__get_line__(node)]
         else:
@@ -302,12 +306,19 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         Respective output for node type:
 
         CONSTANT      : (int) constant value;
-        ID            : (str) "variable name";
-        BinaryOperator: (tuple) ("op", "left value" "right value")
+        ID            : (str) "{variable_name}";
+        BinaryOperator: (str) "{node.left} {op} {node.right}";
+        ArrayRef      : (str) "vector[index]";
         """
         if isinstance(node, c_ast.BinaryOp):
-            return (node.op, self.get_node_value(node.left),
-                    self.get_node_value(node.right))
+            return f"{self.get_node_value(node.left)} {node.op} {self.get_node_value(node.right)}"
+        
+        elif isinstance(node, c_ast.ArrayRef):
+            vector_name = node.name.name
+            vector_index = self.get_node_value(node.subscript)
+                 
+            return f"{vector_name}[{vector_index}]"
+
         elif isinstance(node, c_ast.Constant):
             return node.value
         elif isinstance(node, c_ast.UnaryOp):
@@ -315,20 +326,10 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         elif isinstance(node, c_ast.ID):
             return node.name
 
-
     def __add_node_operands__(self, node):
         node_name = node.__class__.__name__
         node_op = self.get_node_value(node)
-
-        match node_name:
-            case "ArrayRef":
-                vector_name = node.name.name
-                vector_index = self.get_node_value(node.subscript)
-                if type(vector_index) is tuple:
-                    vector_index = f"{vector_index[1]} {vector_index[0]} {vector_index[2]}"
                 
-                node_op = f"{vector_name}[{vector_index}]"
-
         if not node_op in self.operands_info.keys():
             self.operands_info[node_op] = [self.__get_line__(node)]
         else:
@@ -341,7 +342,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
     def __get_func_parameters_type__(self, node):
         types = []
         args = None
-        try:  # IF is a FuncDef=
+        try:  # IF is a FuncDef
             args = node.decl.type.args
         except AttributeError:  # If is a FuncDecl
             if node.args != None:
@@ -389,15 +390,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         if self.__DEBUG__:
             print(f"=============================================================\nCOORD = {node.coord}\n{node}\n")
         else:
-            self.current_operator = True
-
             self.__add_operator__(node, node.op)
             self.__add_statement_cog_c__("declaration", node)
             # Get assignment lvalue operand
 
             self.generic_visit(node)
-            self.current_operator = False
-
+    
     def visit_Decl(self, node):  
         """## Procedure called when a declaration is inicialized.
         This is necessary because pycparser library does not identify inicializations as a Assignment node."""
@@ -405,12 +403,10 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             print(f"=============================================================\n{node}")
         else:
             if node.init is not None:
-                self.current_operator = True
                 self.__add_operator__(node, '=')
                 self.__add_node_operands__(node)
                 self.__add_statement_cog_c__("declaration", node)
                 self.visit(node.init)
-                self.current_operator = False
             else:
                 self.generic_visit(node)
 
@@ -433,13 +429,10 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         if self.__DEBUG__:
             print(f"=============================================================\n{node}")
         else:
-            self.current_operator = True
 
             self.__add_operator__(node, node.op)
             self.__add_node_operands__(node)
             self.generic_visit(node)
-
-            self.current_operator = False
 
     def visit_UnaryOp(self, node):
         """## Procedure called when a unary operator node is visited.
@@ -448,19 +441,15 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         if self.__DEBUG__:
             print(f"=============================================================\n{node}")
         else:
-            self.current_operator = True
-
             self.__add_operator__(node, node.op)
-            self.__add_node_operands__(node)
             if (node.op == "*"):
                 self.__add_statement_cog_c__("pointer", node)
             
             self.generic_visit(node)
-            self.current_operator = False
 
     def visit_ID(self, node):
-        # self.__add_node_operands__(node)
-        return 
+        if not self.current_func_call:
+            self.__add_node_operands__(node)
 
     def visit_Constant(self, node):
         """## Procedure called when a constant/literal node is visited.
@@ -511,8 +500,10 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 self.__add_statement_cog_c__("recursion", node)
             else:
                 self.__add_statement_cog_c__("func_call", node)
-            
+
+            self.current_func_call = True
             self.generic_visit(node)
+            self.current_func_call = False
 
     def visit_If(self, node):
         """## Procedure called when an IF node is visited.
@@ -525,7 +516,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             
             statement = 'if'
             
-            # self.__add_operator__(node, statement)
+            self.__add_operator__(node, statement)
             
             self.__add_statement_cog_c__(statement, node)
             
@@ -544,8 +535,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             
             statement = 'for'
             
-            # self.__add_operator__(node, statement)
-            
+            self.__add_operator__(node, statement)
             self.__add_statement_cog_c__(statement, node)
             
             self.generic_visit(node)
@@ -562,7 +552,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             
             statement = 'while'
             
-            # self.__add_operator__(node, statement)
+            self.__add_operator__(node, statement)
             
             self.__add_statement_cog_c__(statement, node)
                 
@@ -580,7 +570,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             
             statement = 'do while'
             
-            # self.__add_operator__(node, statement)
+            self.__add_operator__(node, statement)
             
             self.__add_statement_cog_c__(statement, node)
                 
