@@ -312,11 +312,14 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         """
         if isinstance(node, c_ast.BinaryOp):
             return f"{self.get_node_value(node.left)} {node.op} {self.get_node_value(node.right)}"
-        
+
         elif isinstance(node, c_ast.ArrayRef):
             vector_name = node.name.name
             vector_index = self.get_node_value(node.subscript)
-                 
+
+            if type(vector_index) is tuple:
+                return f"""{vector_name}[{vector_index[0]} {vector_index[1]} {vector_index[2]}]"""
+
             return f"{vector_name}[{vector_index}]"
 
         elif isinstance(node, c_ast.Constant):
@@ -329,11 +332,15 @@ class ComplexityVisitor(c_ast.NodeVisitor):
     def __add_node_operands__(self, node):
         node_name = node.__class__.__name__
         node_op = self.get_node_value(node)
-                
-        if not node_op in self.operands_info.keys():
-            self.operands_info[node_op] = [self.__get_line__(node)]
+        
+        self.__add_operand_in_dict__(node, node_op)
+        
+    def __add_operand_in_dict__(self, node, operand):
+        if not operand in self.operands_info.keys():
+            self.operands_info[operand] = [self.__get_line__(node)]
         else:
-            self.operands_info[node_op].append(self.__get_line__(node))
+            self.operands_info[operand].append(self.__get_line__(node))
+
 
     def __get_line__(self, node):
         """Function to return the node line in the 'file'_limpo_pre.c."""
@@ -431,7 +438,6 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         else:
 
             self.__add_operator__(node, node.op)
-            self.__add_node_operands__(node)
             self.generic_visit(node)
 
     def visit_UnaryOp(self, node):
@@ -496,6 +502,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 self.functions_info[node.name.name][3].append(self.__get_line__(node))
             self.__add_operator__(node, node.name.name)
             
+            for param in node.args:
+                if not isinstance(param, c_ast.Constant):
+                    param = self.get_node_value(param)
+                
+                    self.__add_operand_in_dict__(node, param)
+
             if (self.__verify_recursion__(node.name.name)):
                 self.__add_statement_cog_c__("recursion", node)
             else:
@@ -688,8 +700,8 @@ if __name__ == "__main__":
     cod2 = "bubble_sort_2"
     t = "teste"
     # show_tree(cod1)
-    # compare (f1, "c")
+    compare (cod1, cod2)
     # compare_to_all(gabarito)
     # debuged_analyse(cod1)
-    individual_analyse(cod1)
+    # individual_analyse(cod2)
     # analyse_all()
