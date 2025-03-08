@@ -65,11 +65,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         self.estimated_len = 0   # Estimated program lenght (^N).
         self.volume = 0          # Volume (V).
         self.difficulty = 0      # Difficulty (D).
-        self.level = 0           # Program level of abstraction.
-        self.inteligence = 0     # Intelligence Content. "Independet of language"
+        self.level = 0           # Program level of abstraction. (L)
+        self.intelligence = 0    # Intelligence Content. "Independet of language" (I)
         self.effort = 0          # Effort (E).
         self.time_required = 0   # Time required to program (T).
-        self.delivered_bugs = 0  # Estimated number of bugs (errors).
+        self.delivered_bugs = 0  # Estimated number of bugs (B).
+
 
         ##########-- COGNITIVE COMPLEXITY --###################################
         # cognitive_modifiers -> DICT
@@ -132,13 +133,14 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 ["Volume", f"{self.volume:.1f}"],
                 ["Difficulty", f"{self.difficulty:.1f}"],
                 ["Program level", f"{self.level:.1f}"],
+                ["Content Intelligence", f"{self.intelligence}"]
                 ["Effort", f"{self.effort:.1f}"],
                 ["Required time to program", f"{self.time_required:.1f}"],
                 ["Delivered bugs", f"{self.delivered_bugs:.1f}"],
                 ["CYCLOMATIC COMPLEXITY"],
                 ["Total Cyclomatic Complexity", self.total_cyclomatic_complexity],
                 ["Cognitive Complexity"],
-                ["Cognitve Complexity", self.total_cognitive_complexity],
+                ["Cognitive Complexity", self.total_cognitive_complexity],
                 ]
         print(tabulate(data, headers=header, tablefmt="grid", numalign="right"))
         self.print_functions_complexities()
@@ -224,13 +226,24 @@ class ComplexityVisitor(c_ast.NodeVisitor):
 
         self.vocabulary     = self.n1 + self.n2                                  # Calculate vocabulary.
         self.lenght         = self.N1 + self.N2                                  # Calculate length.
-        self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
-        self.volume         = self.lenght * log2(self.vocabulary)                # Calculate volume.
-        self.difficulty     = (self.n1 / 2) * (self.N2 / self.n2)                # Calculate difficulty.
-        self.level          = 1 / self.difficulty                                # Calculate program level.
-        self.effort         = self.difficulty * self.volume                      # Calculate effort.
-        self.time_required  = self.effort / 18                                   # Calculate time to program (seconds).
-        self.delivered_bugs = self.effort ** (2 / 3) / 3000                      # Calculate number of delivered bugs.
+        if self.vocabulary == 0:
+            self.estimated_len  = 0
+            self.volume         = 0
+            self.difficulty     = 0
+            self.level          = 0
+            self.effort         = 0
+            self.time_required  = 0
+            self.delivered_bugs = 0
+        else:
+            self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
+            self.volume         = self.lenght * log2(self.vocabulary)                # Calculate volume.
+            self.difficulty     = (self.n1 / 2) * (self.N2 / self.n2)                # Calculate difficulty.
+            self.level          = 1 / self.difficulty                                # Calculate program level.
+            self.intelligence   = self.level * self.volume                           # Calculate program intelligence
+            self.effort         = self.difficulty * self.volume                      # Calculate effort.
+            self.time_required  = self.effort / 18                                   # Calculate time to program (seconds).
+            self.delivered_bugs = self.effort ** (2 / 3) / 3000
+            # Calculate number of dZOelivered bugs.
 
     def print_halstead_volume(self):  
         """Print the Halstead metrics atributes.
@@ -366,10 +379,18 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         return types
 
     def __get_func_return_type__(self, node):
-        try:
-            return node.decl.type.type.type.names[0]
-        except AttributeError:
-            return node.type.type.names[0]
+        
+        node_type = None
+        
+        if isinstance(node, c_ast.FuncDef):
+            node_type = node.decl.type.type
+        elif isinstance(node, c_ast.FuncDecl):
+            node_type = node.type
+
+        if isinstance(node_type, c_ast.TypeDecl):
+            return node_type.type.names[0]
+        elif isinstance(node_type, c_ast.PtrDecl):
+            return node_type.type.type.names[0]
 
     def __add_statement_modifier__(self, statement, node):
         """  Function to add the statement in the self.cognitive_modifier dict."""
@@ -421,8 +442,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         if self.__DEBUG__:
             print(f"=============================================================\n{node}")
         else:
-            self.current_function = node.type.declname
-            if not (node.type.declname in self.functions_info):
+            if isinstance(node.type, c_ast.PtrDecl):
+                self.current_function = node.type.type.declname
+            else:
+                self.current_function = node.type.declname
+
+            if not (self.current_function in self.functions_info):
                 self.functions_info[self.current_function] = [self.__get_func_parameters_type__(node),
                                                               self.__get_func_return_type__(node),
                                                               0,
@@ -502,11 +527,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 self.functions_info[node.name.name][3].append(self.__get_line__(node))
             self.__add_operator__(node, node.name.name)
             
-            for param in node.args:
-                if not isinstance(param, c_ast.Constant):
-                    param = self.get_node_value(param)
+            if not node.args is None:
+                for param in node.args:
+                    if not isinstance(param, c_ast.Constant):
+                        param = self.get_node_value(param)
                 
-                    self.__add_operand_in_dict__(node, param)
+                        self.__add_operand_in_dict__(node, param)
 
             if (self.__verify_recursion__(node.name.name)):
                 self.__add_statement_cog_c__("recursion", node)
@@ -660,6 +686,9 @@ def compare(filename1, filename2):
             ["Difficulty", f"{visitor1.difficulty:.2f}", f"{visitor2.difficulty:.2f}",
              f"{(visitor2.difficulty - visitor1.difficulty):.2f}"],
             ["Level", f"{visitor1.level:.2f}", f"{visitor2.level:.2f}", f"{(visitor2.level - visitor1.level):.2f}"],
+            ["Intelligence", f"{visitor1.intelligence}",
+             f"{visitor2.intelligence}", f"{(visitor2.intelligence -
+             visitor1.intelligence)}"],
             ["Effort", f"{visitor1.effort:.2f}", f"{visitor2.effort:.2f}",
              f"{(visitor2.effort - visitor1.effort):.2f}"],
             ["Time required to program", f"{visitor1.time_required:.2f}", f"{visitor2.time_required:.2f}",
@@ -667,10 +696,17 @@ def compare(filename1, filename2):
             ["Estimated number of bugs", f"{visitor1.delivered_bugs:.2f}", f"{visitor2.delivered_bugs:.2f}",
              f"{(visitor2.delivered_bugs - visitor1.delivered_bugs):.2f}"],
             ["Total cyclomatic complexity", visitor1.total_cyclomatic_complexity, visitor2.total_cyclomatic_complexity,
-             (visitor2.total_cyclomatic_complexity - visitor1.total_cyclomatic_complexity)]
+             (visitor2.total_cyclomatic_complexity -
+              visitor1.total_cyclomatic_complexity)],
+            ["Total Cognitive Complexity", visitor1.total_cognitive_complexity,
+             visitor2.total_cognitive_complexity,
+             (visitor2.total_cognitive_complexity -
+              visitor1.total_cognitive_complexity)]
             ]
-    print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
+    print(tabulate(data, headers=headers, tablefmt="grid", numalign="right"))
+    print("\n\n")
     visitor1.print_functions_complexities()
+    print("\n")
     visitor2.print_functions_complexities()
 
 
@@ -696,12 +732,13 @@ def compare_to_all(f1):
             print("\n\n\n")
 
 if __name__ == "__main__":
-    cod1 = "bubble_sort_1"
+    cod1 = "abrantesasf@computacaoraiz.com.br_1_folhapag"
     cod2 = "bubble_sort_2"
     t = "teste"
-    # show_tree(cod1)
-    compare (cod1, cod2)
-    # compare_to_all(gabarito)
-    # debuged_analyse(cod1)
-    # individual_analyse(cod2)
+    
+    # show_tree(t)
+    # compare (cod1, cod2)
+    compare_to_all(cod1)
+    # debuged_analyse(t)
+    # individual_analyse(t)
     # analyse_all()
