@@ -2,7 +2,7 @@
 Examples/
 
 # Ambiente virtual python
-venv/
+.venv/
 .idea/
 
 # Diretório dos códigos que não serão utilizados no momento.
