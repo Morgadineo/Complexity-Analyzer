@@ -4,20 +4,20 @@ from tabulate import tabulate
 class HalsteadCalculator:
 
 	def __init__(self):
-		self.n1 = 0
-		self.n2 = 0
-		self.N1 = 0
-		self.N2 = 0
+		self.n1: float = 0
+		self.n2: float = 0
+		self.N1: float = 0
+		self.N2: float = 0
 
-		self.vocabulary     = 0
-		self.lenght         = 0
-		self.estimated_len  = 0
-		self.volume         = 0
-		self.difficulty     = 0
-		self.level          = 0
-		self.effort         = 0
-		self.time_required  = 0
-		self.delivered_bugs = 0
+		self.vocabulary    : float = 0
+		self.lenght        : float = 0
+		self.estimated_len : float = 0
+		self.volume        : float = 0
+		self.difficulty    : float = 0
+		self.level         : float = 0
+		self.effort        : float = 0
+		self.time_required : float = 0
+		self.delivered_bugs: float = 0
 
 
 	def calculate_metrics(self):
@@ -58,9 +58,9 @@ class HalsteadCalculator:
 		self.calculate_metrics()
 		self.print_metrics()
 
-if __name__ == "__main__":
-	hals_calculator = HalsteadCalculator()
-	
-	hals_calculator.calculate_print()
+hals_calculator = HalsteadCalculator()	
+hals_calculator.calculate_print()
+print(f"1 - {log2(hals_calculator.n1)}")
+print(f"2 - {log2(hals_calculator.n2)}")
 
 

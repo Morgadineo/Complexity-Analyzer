@@ -1,3 +1,4 @@
+from typing import Union
 from pycparser import parse_file, c_ast
 from math import log2
 from tabulate import tabulate
@@ -6,17 +7,17 @@ from os import listdir
 class ComplexityVisitor(c_ast.NodeVisitor):
     def __init__(self, filename):
         ##########-- UTILS VARIABLES --########################################
-        self.__DEBUG__ = False
-        
+        self.__DEBUG__: bool = False
+
         ##-- FILE --##
-        self.filename = filename                             # Raw filename
-        self.file_dir = "Examples"                           # Dir with the source file and the pre-compiled file
-        self.file_path = f"{self.file_dir}/{self.filename}"  # File path without sufix
-        self.file_clean = f"{self.file_path}.i"              # Path to the pre-compiled file
-        self.file_source = f"{self.file_path}.c"             # Path to the source code
-        
+        self.filename   : str = filename                             # Raw filename
+        self.file_dir   : str = "Examples"                           # Dir with the source file and the pre-compiled file
+        self.file_path  : str = f"{self.file_dir}/{self.filename}"  # File path without sufix
+        self.file_clean : str = f"{self.file_path}.i"              # Path to the pre-compiled file
+        self.file_source: str = f"{self.file_path}.c"             # Path to the source code
+
         ##########-- CODE INFOS --#############################################
-        self.functions_called = set()
+        self.functions_called: set[str] = set()
 
         # VARIABLE: functions_info -> Dict -> STRING: ARRAY
         #  Store functions information in array in order:
@@ -24,52 +25,52 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         #      * [1] STRING -> "Return type"
         #      * [2] INT -> Line of definition
         #      * [3] INT[] -> Lines of calls
-        self.functions_info = {}
+        self.functions_info: dict[str, list[int | str]] = {}
 
         # VARIABLE: functions_complexities -> Dict -> STRING: ARRAY
         #  Store functions complexitites in a array with order:
         #      * [0] INT -> Cyclomatic Number
         #      * [1] INT -> Cognitive Number
-        self.functions_complexities = {}
+        self.functions_complexities: dict[str, list[int]] = {}
         
         ##########-- LENGHT COMPLEXITY --######################################
-        self.total_lines = 0      # Total lines of code
-        self.effective_lines = 0  # Total of effective lines of code
+        self.total_lines    : int = 0      # Total lines of code
+        self.effective_lines: int = 0  # Total of effective lines of code
 
         ##########-- CYCLOMATIC COMPLEXITY --##################################
-        self.cyclomatic_complexity = 0            # Individual complexity.
-        self.total_cyclomatic_complexity = 0      # Total McCabe.
-        self.current_function = None              # Current visiting function.
+        self.cyclomatic_complexity      : int = 0     # Individual complexity.
+        self.total_cyclomatic_complexity: int = 0     # Total McCabe.
+        self.current_function           : str = ""    # Current visiting function.
 
         ##########-- HALSTEAD COMPLEXITY --####################################
-        self.current_func_call = False
+        self.current_func_call: bool = False
 
         # Operators informations
         # OPERATOR -> ()
         # [0] -> Count of uses
         # [1] -> Lines used
-        self.operators_info = dict()
-        self.operands = set()   
+        self.operators_info: dict[str, list[int]] = dict()
+        self.operands      : set[str] = set()   
 
         # Operands informations
         # OPERAND -> {}
         # [0] -> Count of uses
         # [1] -> Lines used
-        self.operands_info = dict()
-        self.n1 = 0              # Number of distinct operators (n1).
-        self.n2 = 0              # Number of distinct operands (n2).
-        self.N1 = 0              # Total number of operators (N1).
-        self.N2 = 0              # Total number of operands (N2).
-        self.vocabulary = 0      # Program vocabulary (n).
-        self.lenght = 0          # Program lenght (N).
-        self.estimated_len = 0   # Estimated program lenght (^N).
-        self.volume = 0          # Volume (V).
-        self.difficulty = 0      # Difficulty (D).
-        self.level = 0           # Program level of abstraction. (L)
-        self.intelligence = 0    # Intelligence Content. "Independet of language" (I)
-        self.effort = 0          # Effort (E).
-        self.time_required = 0   # Time required to program (T).
-        self.delivered_bugs = 0  # Estimated number of bugs (B).
+        self.operands_info : dict[str, list[int]] = dict()
+        self.n1            : float = 0  # Number of distinct operators (n1).
+        self.n2            : float = 0  # Number of distinct operands (n2).
+        self.N1            : float = 0  # Total number of operators (N1).
+        self.N2            : float = 0  # Total number of operands (N2).
+        self.vocabulary    : float = 0  # Program vocabulary (n).
+        self.lenght        : float = 0  # Program lenght (N).
+        self.estimated_len : float = 0  # Estimated program lenght (^N).
+        self.volume        : float = 0  # Volume (V).
+        self.difficulty    : float = 0  # Difficulty (D).
+        self.level         : float = 0  # Program level of abstraction. (L)
+        self.intelligence  : float = 0  # Intelligence Content. "Independet of language" (I)
+        self.effort        : float = 0  # Effort (E).
+        self.time_required : float = 0  # Time required to program (T).
+        self.delivered_bugs: float = 0  # Estimated number of bugs (B).
 
 
         ##########-- COGNITIVE COMPLEXITY --###################################
@@ -77,12 +78,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         # [0] -> STR | "Statement name"
         # [1] -> INT | Node coord
         # [2] -> INT | Cognitive Complexity modifiers
-        self.cognitive_modifiers = dict() # Stores all the statements that add cognitive complexity
-        self.current_statement = None          # The current statement
-        self.current_statement_complexity = 0  # The current statement complexity
-        self.total_cognitive_complexity = 0    # Total cognitive complexity.
-        self.current_depth = 0                 # Actual deph level.
-        self.weights = {                       # Weight of statements and structures (Based on the article):
+        self.cognitive_modifiers         : dict[str, list[str | int]] = dict() # Stores all the statements that add cognitive complexity
+        self.current_statement           : str = ""          # The current statement
+        self.current_statement_complexity: int = 0  # The current statement complexity
+        self.total_cognitive_complexity  : int = 0    # Total cognitive complexity.
+        self.current_depth               : int = 0                 # Actual deph level.
+        self.weights                     : dict[str, int] = {                       # Weight of statements and structures (Based on the article):
             "declaration": 1,                  # "Code Complexity - A New Measure" de Jitender Kumar Chhabra. (ADAPTADO)
             "func_call": 1,
             "if": 2,
@@ -98,14 +99,13 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         }
 
     ###********************************************************************************************###
-    ##                           FUNCTIONS                                                                                     ##
+    ##                           FUNCTIONS                                                          ##
     ###********************************************************************************************###
 
     ###-- UTILS FUNCTIONS --###################################################
 
-    def print_analyse(self):
+    def print_analyse(self) -> None:
         """Analyse and print the code complexity."""
-        ast = parse_file(self.file_clean, use_cpp=False)
         self.analyse()
         self.print_complexities()
 
@@ -115,7 +115,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         self.visit(ast)
         self.count_lines()
         self.calculate_halstead_metrics()
-
+        
     def print_complexities(self):
         """Print the class complexity atributes in a table format. Call the
         others print functions."""
@@ -133,7 +133,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 ["Volume", f"{self.volume:.1f}"],
                 ["Difficulty", f"{self.difficulty:.1f}"],
                 ["Program level", f"{self.level:.1f}"],
-                ["Content Intelligence", f"{self.intelligence}"]
+                ["Content Intelligence", f"{self.intelligence}"],
                 ["Effort", f"{self.effort:.1f}"],
                 ["Required time to program", f"{self.time_required:.1f}"],
                 ["Delivered bugs", f"{self.delivered_bugs:.1f}"],
@@ -142,12 +142,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 ["Cognitive Complexity"],
                 ["Cognitive Complexity", self.total_cognitive_complexity],
                 ]
-        print(tabulate(data, headers=header, tablefmt="grid", numalign="right"))
+        print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
         self.print_functions_complexities()
         self.print_operators()
         self.print_operands()
 
-    def print_operands(self):
+    def print_operands(self) -> None:
         """Print the operands dictionary in a table format."""
         header = ["Operand", "Total uses", "Used lines"]
         data = []
@@ -156,7 +156,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         print("\n")
         print(tabulate(data, headers=header, tablefmt="grid", numalign="right"))
 
-    def print_operators(self):
+    def print_operators(self) -> None:
         """Print the operators dictionary in a table format."""
         header = ["Operator", "Total uses", "Used lines"]
         data = []
@@ -165,12 +165,12 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         print("\n")
         print(tabulate(data, headers=header, tablefmt="grid", numalign="right"))
 
-    def print_ast(self):
+    def print_ast(self) -> None:
         """Print the Abstract Syntax Tree using the pycparser ast.show function."""
         ast = parse_file(self.file_clean, use_cpp=False, )  
         ast.show(showcoord=False)
 
-    def __debug_analyse__(self):
+    def __debug_analyse__(self) -> None:
         """Make the anaylse using the DEBUG mode.
         DEBUG MODE print the nodes in the visit order.
         """
@@ -178,14 +178,14 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         ast = parse_file(self.file_clean, use_cpp=False)
         self.visit(ast)
 
-    def print_lenght(self):
+    def print_lenght(self) -> None:
         """Print the code lenght complexity in a table format."""
         headers = ["CODE INFOS", "VALUE"]
         data = [["Effective lines", self.effective_lines],
                 ["Total lines", self.total_lines]]
         print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
 
-    def count_lines(self):
+    def count_lines(self) -> None:
         """Count the total lines and the effective lines (non-empty, not comment
         and not only '{' or '}')."""
         with open(self.file_source) as file:
@@ -219,7 +219,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 
                 self.effective_lines += 1
 
-    def calculate_halstead_metrics(self):
+    def calculate_halstead_metrics(self) -> None:
         """Procedure to calculate the Halstead metrics."""
         self.n1, self.N1 = self.__count_operators__()
         self.n2, self.N2 = self.__count_operands__()
@@ -243,9 +243,9 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             self.effort         = self.difficulty * self.volume                      # Calculate effort.
             self.time_required  = self.effort / 18                                   # Calculate time to program (seconds).
             self.delivered_bugs = self.effort ** (2 / 3) / 3000
-            # Calculate number of dZOelivered bugs.
+            # Calculate number of delivered bugs.
 
-    def print_halstead_volume(self):  
+    def print_halstead_volume(self) -> None:  
         """Print the Halstead metrics atributes.
 
         OBS: The function only
@@ -703,14 +703,14 @@ def compare(filename1, filename2):
              (visitor2.total_cognitive_complexity -
               visitor1.total_cognitive_complexity)]
             ]
-    print(tabulate(data, headers=headers, tablefmt="grid", numalign="right"))
+    print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
     print("\n\n")
     visitor1.print_functions_complexities()
     print("\n")
     visitor2.print_functions_complexities()
 
 
-def individual_analyse(filename):
+def individual_analyse (filename: str) -> None:
     visitor = ComplexityVisitor(filename)
     visitor.print_analyse()
 
@@ -725,20 +725,18 @@ def analyse_all(debug=0):
 
 def compare_to_all(f1):
     for filename in listdir("Examples"):
-        if filename[-2:] == ".i":
-            pure_filename = filename[:-2]
-            print(f"==================/ {f1} compared to {pure_filename}\\================================")
-            compare(f1, pure_filename)
-            print("\n\n\n")
+        if not (filename == (f1 + ".i")):
+            if filename[-2:] == ".i":
+                pure_filename = filename[:-2]
+                print(f"==================/ {f1} compared to {pure_filename}\\================================")
+                compare(f1, pure_filename)
+                print("\n\n\n")
 
-if __name__ == "__main__":
-    cod1 = "abrantesasf@computacaoraiz.com.br_1_folhapag"
-    cod2 = "bubble_sort_2"
-    t = "teste"
-    
+if __name__ == "__main__": 
+
     # show_tree(t)
-    # compare (cod1, cod2)
-    compare_to_all(cod1)
+    # compare("cola3", "cola4")
+    # compare_to_all(cod1)
     # debuged_analyse(t)
     # individual_analyse(t)
-    # analyse_all()
+    analyse_all()
