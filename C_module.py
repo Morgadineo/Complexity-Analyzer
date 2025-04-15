@@ -1,23 +1,23 @@
-from typing import Union
+from typing import List, Tuple
 from pycparser import parse_file, c_ast
 from math import log2
 from tabulate import tabulate
-from os import listdir
 
 class ComplexityVisitor(c_ast.NodeVisitor):
     def __init__(self, filename):
         ##########-- UTILS VARIABLES --########################################
         self.__DEBUG__: bool = False
 
-        ##-- FILE --##
-        self.filename   : str = filename                             # Raw filename
-        self.file_dir   : str = "Examples"                           # Dir with the source file and the pre-compiled file
+        ##-- FILE --###########################################################
+        self.filename   : str = filename                            # Raw filename
+        self.file_dir   : str = "Examples"                          # Dir with the source file and the pre-compiled file
         self.file_path  : str = f"{self.file_dir}/{self.filename}"  # File path without sufix
-        self.file_clean : str = f"{self.file_path}.i"              # Path to the pre-compiled file
-        self.file_source: str = f"{self.file_path}.c"             # Path to the source code
+        self.file_clean : str = f"{self.file_path}.i"               # Path to the pre-compiled file
+        self.file_source: str = f"{self.file_path}.c"               # Path to the source code
 
         ##########-- CODE INFOS --#############################################
-        self.functions_called: set[str] = set()
+        self.functions_called  : set[str] = set()
+        self.qtt_functions_call: int = 0
 
         # VARIABLE: functions_info -> Dict -> STRING: ARRAY
         #  Store functions information in array in order:
@@ -34,13 +34,13 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         self.functions_complexities: dict[str, list[int]] = {}
         
         ##########-- LENGHT COMPLEXITY --######################################
-        self.total_lines    : int = 0      # Total lines of code
+        self.total_lines    : int = 0  # Total lines of code
         self.effective_lines: int = 0  # Total of effective lines of code
 
         ##########-- CYCLOMATIC COMPLEXITY --##################################
-        self.cyclomatic_complexity      : int = 0     # Individual complexity.
-        self.total_cyclomatic_complexity: int = 0     # Total McCabe.
-        self.current_function           : str = ""    # Current visiting function.
+        self.cyclomatic_complexity      : int = 0   # Individual complexity.
+        self.total_cyclomatic_complexity: int = 0   # Total McCabe.
+        self.current_function           : str = ""  # Current visiting function.
 
         ##########-- HALSTEAD COMPLEXITY --####################################
         self.current_func_call: bool = False
@@ -98,6 +98,9 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             "complex_pointer": 4
         }
 
+        # Initializing function
+        self.analyse()
+
     ###********************************************************************************************###
     ##                           FUNCTIONS                                                          ##
     ###********************************************************************************************###
@@ -105,20 +108,30 @@ class ComplexityVisitor(c_ast.NodeVisitor):
     ###-- UTILS FUNCTIONS --###################################################
 
     def print_analyse(self) -> None:
-        """Analyse and print the code complexity."""
-        self.analyse()
+        """
+        Call the analyse function that parse the precompiled C code, make the AST, visit the nodes 
+        and get the metric. After that, print the code complexity table.
+        """
+        self.analyse()             
         self.print_complexities()
 
-    def analyse(self):
-        """Call all the complexity calculate functions."""
+    def analyse(self) -> None:
+        """This function parse the precompiled C code, generates an Abstract Syntax Tree (AST),
+        visit the nodes and get the metrics.
+
+        Halstead Metrics and LOC complexity are called here, while Cyclomatic Complexity is
+        obtained when the nodes are visited.
+        """
         ast = parse_file(self.file_clean, use_cpp=False) 
         self.visit(ast)
         self.count_lines()
         self.calculate_halstead_metrics()
         
     def print_complexities(self):
-        """Print the class complexity atributes in a table format. Call the
-        others print functions."""
+        """Print the code complexity table, list of operands, operators and the functions complexities.
+
+        (This function do not calculate the metrics and either generate the AST)
+        """
         print(f"==================/ {self.filename} \\===================================")
         header = ["Complexity", "Value"]
         data = [["Total lines", self.total_lines],
@@ -143,18 +156,18 @@ class ComplexityVisitor(c_ast.NodeVisitor):
                 ["Cognitive Complexity", self.total_cognitive_complexity],
                 ]
         print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
+        
         self.print_functions_complexities()
         self.print_operators()
         self.print_operands()
 
     def print_operands(self) -> None:
         """Print the operands dictionary in a table format."""
-        header = ["Operand", "Total uses", "Used lines"]
+        header = ["Operand", "Total uses", "Appeared line"]
         data = []
         for op in self.operands_info:
             data.append([op, len(self.operands_info[op]), self.operands_info[op]])
-        print("\n")
-        print(tabulate(data, headers=header, tablefmt="grid", numalign="right"))
+        print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
 
     def print_operators(self) -> None:
         """Print the operators dictionary in a table format."""
@@ -163,7 +176,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         for op in self.operators_info:
             data.append([op, len(self.operators_info[op]), self.operators_info[op]])
         print("\n")
-        print(tabulate(data, headers=header, tablefmt="grid", numalign="right"))
+        print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
 
     def print_ast(self) -> None:
         """Print the Abstract Syntax Tree using the pycparser ast.show function."""
@@ -293,7 +306,9 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             total_operands += len(self.operands_info[op])
         return distinct_operands, total_operands
 
-    def __count_operators__(self):
+    def __count_operators__(self) -> Tuple[int, int]:
+        """Function to count the operators present in the code.
+        """
         distinct_operators = 0
         total_operators = 0
         for op in self.operators_info:
@@ -359,7 +374,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         """Function to return the node line in the 'file'_limpo_pre.c."""
         return int(str(node.coord).split(':')[1])
 
-    def __get_func_parameters_type__(self, node):
+    def __get_func_parameters_type__(self, node) -> list[str] | None:
         types = []
         args = None
         try:  # IF is a FuncDef
@@ -378,7 +393,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             return None
         return types
 
-    def __get_func_return_type__(self, node):
+    def __get_func_return_type__(self, node) -> str | None:
         
         node_type = None
         
@@ -391,10 +406,6 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             return node_type.type.names[0]
         elif isinstance(node_type, c_ast.PtrDecl):
             return node_type.type.type.names[0]
-
-    def __add_statement_modifier__(self, statement, node):
-        """  Function to add the statement in the self.cognitive_modifier dict."""
-        self.cognitive_modifiers
 
     def __add_statement_cog_c__(self, statement, node):
         """Add the statement cognitive complexity in the function."""
@@ -522,6 +533,7 @@ class ComplexityVisitor(c_ast.NodeVisitor):
             print(f"=============================================================\n{node}")
         else:
             self.functions_called.add(node.name.name)
+            self.qtt_functions_call += 1
 
             if node.name.name in self.functions_info:
                 self.functions_info[node.name.name][3].append(self.__get_line__(node))
@@ -648,95 +660,64 @@ class ComplexityVisitor(c_ast.NodeVisitor):
         self.generic_visit(node)
         self.current_operator = False
 
-
-###-- OUT CLASS --###########################################################
-def debuged_analyse(filename):
-    visitor = ComplexityVisitor(filename)
-    visitor.__debug_analyse__()
-
-
-def show_tree(filename):
-    visitor = ComplexityVisitor(filename)
-    visitor.print_ast()
-
-def compare(filename1, filename2):
-    visitor1 = ComplexityVisitor(filename1)
-    visitor2 = ComplexityVisitor(filename2)
-    visitor1.analyse()
-    visitor2.analyse()
-
-    headers = ["Metric", f"{filename1[:5]}", f"{filename2[:5]}", f"{filename2[:5]} has"]
-    data = [["Total lines", visitor1.total_lines, visitor2.total_lines, (visitor2.total_lines - visitor1.total_lines)],
-            ["Effective lines", visitor1.effective_lines, visitor2.effective_lines,
-            (visitor2.effective_lines - visitor1.effective_lines)],
-            ["Count of distinct operators", visitor1.n1, visitor2.n1,
-             (visitor2.n1 - visitor1.n1)],
-            ["Count of distinct operands", visitor1.n2, visitor2.n2,
-             (visitor2.n2 - visitor1.n2)],
-            ["Total operators", visitor1.N1, visitor2.N1, (visitor2.N1 - visitor1.N1)],
-            ["Total operands", visitor1.N2, visitor2.N2, (visitor2.N2 - visitor1.N2)],
-            ["Program vocabulary", visitor1.vocabulary, visitor2.vocabulary,
-             (visitor2.vocabulary - visitor1.vocabulary)],
-            ["Program lenght", f"{visitor1.lenght:.2f}", f"{visitor2.lenght:.2f}",
-             f"{(visitor2.lenght - visitor1.lenght):.2f}"],
-            ["Estimated program length", f"{visitor1.estimated_len:.2f}", f"{visitor2.estimated_len:.2f}",
-             f"{(visitor2.estimated_len - visitor1.estimated_len):.2f}"],
-            ["Volume", f"{visitor1.volume:.2f}", f"{visitor2.volume:.2f}",
-             f"{(visitor2.volume - visitor1.volume):.2f}"],
-            ["Difficulty", f"{visitor1.difficulty:.2f}", f"{visitor2.difficulty:.2f}",
-             f"{(visitor2.difficulty - visitor1.difficulty):.2f}"],
-            ["Level", f"{visitor1.level:.2f}", f"{visitor2.level:.2f}", f"{(visitor2.level - visitor1.level):.2f}"],
-            ["Intelligence", f"{visitor1.intelligence}",
-             f"{visitor2.intelligence}", f"{(visitor2.intelligence -
-             visitor1.intelligence)}"],
-            ["Effort", f"{visitor1.effort:.2f}", f"{visitor2.effort:.2f}",
-             f"{(visitor2.effort - visitor1.effort):.2f}"],
-            ["Time required to program", f"{visitor1.time_required:.2f}", f"{visitor2.time_required:.2f}",
-             f"{(visitor2.time_required - visitor1.time_required):.2f}"],
-            ["Estimated number of bugs", f"{visitor1.delivered_bugs:.2f}", f"{visitor2.delivered_bugs:.2f}",
-             f"{(visitor2.delivered_bugs - visitor1.delivered_bugs):.2f}"],
-            ["Total cyclomatic complexity", visitor1.total_cyclomatic_complexity, visitor2.total_cyclomatic_complexity,
-             (visitor2.total_cyclomatic_complexity -
-              visitor1.total_cyclomatic_complexity)],
-            ["Total Cognitive Complexity", visitor1.total_cognitive_complexity,
-             visitor2.total_cognitive_complexity,
-             (visitor2.total_cognitive_complexity -
-              visitor1.total_cognitive_complexity)]
-            ]
-    print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
-    print("\n\n")
-    visitor1.print_functions_complexities()
-    print("\n")
-    visitor2.print_functions_complexities()
+    # ==== PROGRAM EXECUTION =====================
+    def debuged_analyse(self):
+        visitor = ComplexityVisitor(self.filename)
+        visitor.__debug_analyse__()
 
 
-def individual_analyse (filename: str) -> None:
-    visitor = ComplexityVisitor(filename)
-    visitor.print_analyse()
+    def show_tree(self):
+        self.print_ast()
 
-def analyse_all(debug=0):
-    for filename in listdir("Examples"):
-        if filename[-2:] == ".i":
-            pure_filename = filename[:-2]
-            if not debug:
-                individual_analyse(pure_filename)
-            else:
-                debuged_analyse(pure_filename)
+    def compare(self, filename2: str):
+        self.calculate_halstead_metrics()
+        visitor2 = ComplexityVisitor(filename2)
+        visitor2.analyse()
 
-def compare_to_all(f1):
-    for filename in listdir("Examples"):
-        if not (filename == (f1 + ".i")):
-            if filename[-2:] == ".i":
-                pure_filename = filename[:-2]
-                print(f"==================/ {f1} compared to {pure_filename}\\================================")
-                compare(f1, pure_filename)
-                print("\n\n\n")
+        headers = ["Metric", f"{self.filename}", f"{filename2}", f"{filename2} has"]
+        data = [["Total lines", self.total_lines, visitor2.total_lines, (visitor2.total_lines - self.total_lines)],
+                ["Effective lines", self.effective_lines, visitor2.effective_lines,
+                (visitor2.effective_lines - self.effective_lines)],
+                ["Count of distinct operators", self.n1, visitor2.n1,
+                 (visitor2.n1 - self.n1)],
+                ["Count of distinct operands", self.n2, visitor2.n2,
+                 (visitor2.n2 - self.n2)],
+                ["Total operators", self.N1, visitor2.N1, (visitor2.N1 - self.N1)],
+                ["Total operands", self.N2, visitor2.N2, (visitor2.N2 - self.N2)],
+                ["Program vocabulary", self.vocabulary, visitor2.vocabulary,
+                 (visitor2.vocabulary - self.vocabulary)],
+                ["Program lenght", f"{self.lenght:.2f}", f"{visitor2.lenght:.2f}",
+                 f"{(visitor2.lenght - self.lenght):.2f}"],
+                ["Estimated program length", f"{self.estimated_len:.2f}", f"{visitor2.estimated_len:.2f}",
+                 f"{(visitor2.estimated_len - self.estimated_len):.2f}"],
+                ["Volume", f"{self.volume:.2f}", f"{visitor2.volume:.2f}",
+                 f"{(visitor2.volume - self.volume):.2f}"],
+                ["Difficulty", f"{self.difficulty:.2f}", f"{visitor2.difficulty:.2f}",
+                 f"{(visitor2.difficulty - self.difficulty):.2f}"],
+                ["Level", f"{self.level:.2f}", f"{visitor2.level:.2f}", f"{(visitor2.level - self.level):.2f}"],
+                ["Intelligence", f"{self.intelligence}",
+                 f"{visitor2.intelligence}", f"{(visitor2.intelligence -
+                 self.intelligence)}"],
+                ["Effort", f"{self.effort:.2f}", f"{visitor2.effort:.2f}",
+                 f"{(visitor2.effort - self.effort):.2f}"],
+                ["Time required to program", f"{self.time_required:.2f}", f"{visitor2.time_required:.2f}",
+                 f"{(visitor2.time_required - self.time_required):.2f}"],
+                ["Estimated number of bugs", f"{self.delivered_bugs:.2f}", f"{visitor2.delivered_bugs:.2f}",
+                 f"{(visitor2.delivered_bugs - self.delivered_bugs):.2f}"],
+                ["Total cyclomatic complexity", self.total_cyclomatic_complexity, visitor2.total_cyclomatic_complexity,
+                 (visitor2.total_cyclomatic_complexity -
+                  self.total_cyclomatic_complexity)],
+                ["Total Cognitive Complexity", self.total_cognitive_complexity,
+                 visitor2.total_cognitive_complexity,
+                 (visitor2.total_cognitive_complexity -
+                  self.total_cognitive_complexity)]
+                ]
+        print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
+        print("\n\n")
+        self.print_functions_complexities()
+        print("\n")
+        visitor2.print_functions_complexities()
 
-if __name__ == "__main__": 
-
-    # show_tree(t)
-    # compare("cola3", "cola4")
-    # compare_to_all(cod1)
-    # debuged_analyse(t)
-    # individual_analyse(t)
-    analyse_all()
+if __name__ == "__main__":
+    codigo_1 = ComplexityVisitor("codigo_1")
+    codigo_1.print_complexities()
