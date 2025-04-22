@@ -19,7 +19,7 @@ class ParsedCode(c_ast.NodeVisitor):
         self.file_source: str = f"{self.file_path}.c"               # Path to the source code
 
         #--> Global states <-- ################################################
-        self.actual_binary_operator: str = ""
+        self.current_node_type: str = ""
 
         ####################################################################### 
         # |> variable: self.operands
@@ -91,6 +91,30 @@ class ParsedCode(c_ast.NodeVisitor):
 ##=== ===|> Methods <|=== === #################################################
 
     ## ==> Auxiliar methods <== ###########################################
+    def print_operators(self) -> None:
+        """
+        Print the operators dictionary in a table format.
+        """
+        header = ["Operator", "Total uses", "Used lines"]
+        data = []
+        
+        for op in self.operators:
+            data.append([op, len(self.operators[op]), self.operators[op]])
+        
+        print("\n", tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
+
+
+
+    def print_operands(self) -> None:
+        """Print the operands dictionary in a table format."""
+        header = ["Operand", "Total uses", "Appeared line"]
+        data   = []
+
+        for op in self.operands:
+            data.append([op, len(self.operands[op]), self.operands[op]])
+        
+        print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
+
 
     def show_tree(self) -> None:
         """
@@ -98,21 +122,6 @@ class ParsedCode(c_ast.NodeVisitor):
         """
 
         self.ast.show(showcoord = True)
-
-    def print_operators(self):
-        """
-        Print the operators dictionary
-        """
-        for operator in self.operators.keys():
-            print(f"{operator}: {self.operators[operator]}")
-
-
-    def print_operands(self):
-        """
-        Print the operand dictionary
-        """
-        for operand in self.operands.keys():
-            print(f"{operand}: {self.operands[operand]}")
 
     def append_operator(self, node: c_ast.Node) -> int:
         """
@@ -126,23 +135,18 @@ class ParsedCode(c_ast.NodeVisitor):
                   0 if is not a valid node.
 
         """
-        valid_nodes: list[str] = ["BinaryOp", "UnaryOp", "TypeDecl"]
+        operator: str = self.get_node_value(node)
+        line    : int = self.get_node_line(node)
 
-        if self.get_node_type(node) in valid_nodes:
-            operator: str = self.get_node_value(node)
-            line    : int = self.get_node_line(node)
+        if self.get_node_type(node) == "TypeDecl":
+            operator = "="
 
-            if self.get_node_type(node) == "TypeDecl":
-                operator = "="
+        if operator in self.operators.keys():
+            self.operators[operator].append(line)
+        else:
+            self.operators.update({operator: [line]})
 
-            if operator in self.operators.keys():
-                self.operators[operator].append(line)
-            else:
-                self.operators.update({operator: [line]})
-            return 1
-        return 0
-
-    def append_operand(self, node: c_ast.Node) -> int:
+    def append_operand(self, node: c_ast.Node) -> None:
         """
         Extract the operand from a node an adds the operand and its occurrence 
         line to the operand dictionary.
@@ -155,20 +159,14 @@ class ParsedCode(c_ast.NodeVisitor):
         :returns: 1 if is a valid node for a operand.
                   0 if is not a valid node.
         """
-        valid_nodes: list[str] = ["Constant", "ID", "TypeDecl", "FuncCall"]
 
-        if self.get_node_type(node) in valid_nodes:
-            operand: str = self.get_node_value(node)
-            line   : int = self.get_node_line(node)
+        operand: str = self.get_node_value(node)
+        line   : int = self.get_node_line(node)
 
-            if operand in self.operands.keys(): # Only append the line ocurrency.
-                self.operands[operand].append(line)
-            else:
-                self.operands.update({operand: [line]}) # Create a register.
-
-            return 1
-        
-        return 0
+        if operand in self.operands.keys(): # Only append the line ocurrency.
+            self.operands[operand].append(line)
+        else:
+            self.operands.update({operand: [line]}) # Create a register.
 
     def count_dict_values(self, dict: dict[str, list[int]]) -> int:
         """
@@ -217,22 +215,23 @@ class ParsedCode(c_ast.NodeVisitor):
 
     ## ==> Visit nodes <== ################################################
 
-    def visit_Decl(self, node: c_ast.Node) -> None:
+    def visit_Decl(self, node: c_ast.Decl) -> None:
         """
         This function is called when a Declaration node is visited.
 
         :param node: A c_ast node type.
         """
-        
+        self.current_node_type = "Decl"
+
         # |> As variable DECLaration
         if node.init is not None:
             self.append_operator(node.type)
-            self.append_operand(node.init)
             self.append_operand(node.type)
+            self.visit(node.init)
 
-        self.generic_visit(node)
+        self.current_node_type = ""
 
-    def visit_UnaryOp(self, node: c_ast.Node) -> None:
+    def visit_UnaryOp(self, node: c_ast.UnaryOp) -> None:
         """
         This function is called when a binary operator node is visited.
 
@@ -240,20 +239,17 @@ class ParsedCode(c_ast.NodeVisitor):
         """
         self.append_operator(node)
 
-        self.generic_visit(node)
-
-    def visit_BinaryOp(self, node: c_ast.Node) -> None:
+    def visit_BinaryOp(self, node: c_ast.BinaryOp) -> None:
         """
         This function is called when a binary operator node is visited.
 
         :param node: A c_ast node type.
         """
         self.append_operator(node)
+        self.visit(node.left)
+        self.visit(node.right)
 
-        self.generic_visit(node)
-
-
-    def visit_Constant(self, node: c_ast.Node) -> None:
+    def visit_Constant(self, node: c_ast.Constant) -> None:
         """
         This function is called when a constant node is visited.
         A constant node, is a node that represent a constant value, as a string or literal
@@ -265,36 +261,32 @@ class ParsedCode(c_ast.NodeVisitor):
         # |=> Constant as operand:
         self.append_operand(node)
 
-        self.generic_visit(node)
-
-    def visit_FuncCall(self, node: c_ast.Node) -> None:
+    def visit_FuncCall(self, node: c_ast.FuncCall) -> None:
         """
         This function is called when a function_call node is visited.
-
-        What he does:
-            * add the function name in the distinct funcs call set.
-            * do generic visit for the rest nodes.
-
         """
+        # |> Function call as operator
         self.distict_func_calls.add(self.get_node_value(node))
+        self.append_operator(node)
 
-        self.generic_visit(node)
+        # |> Function call as operand
+        if self.current_node_type != "":
+            self.append_operand(node)
 
-    def visit_ID(self, node: c_ast.Node) -> None:
+        # |> Function args as operands
+        self.current_node_type = "FuncCall"
+        for arg in node.args:
+            self.visit(arg)
+        self.current_node_type = ""
+
+    def visit_ID(self, node: c_ast.ID) -> None:
         """
         This function is called when a ID node is visited.
         A identifier (ID) can be the name of a function or a variable.
-
-        What he does:
-            * Verify if is a func_call, if not, add has a operand.
-            * visit node
-
         """
         # |=> As operand:
-        if not self.get_node_value(node) in self.distict_func_calls:
-            self.append_operand(node)
+        self.append_operand(node)
 
-        self.generic_visit(node)
 
 ## ==>  Utils Node Methods <==#############################################
     def get_node_line(self, node: c_ast.Node) -> int:
