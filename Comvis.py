@@ -128,15 +128,16 @@ class ParsedCode(c_ast.NodeVisitor):
         """
         self.n1, self.N1    = self.count_operators()
         self.n2, self.N2    = self.count_operands()
-        self.vocabulary     = self.n1 + self.n2                    # Calculate vocabulary.
-        self.lenght         = self.N1 + self.N2                    # Calculate length.
-        self.volume         = self.lenght * log2(self.vocabulary)  # Calculate volume.
-        self.difficulty     = (self.n1 / 2) * (self.N2 / self.n2)  # Calculate difficulty.
-        self.level          = 1 / self.difficulty                  # Calculate program level.
-        self.intelligence   = self.level * self.volume             # Calculate program intelligence
-        self.effort         = self.difficulty * self.volume        # Calculate effort.
-        self.time_required  = self.effort / 18                     # Calculate time to program (seconds).
-        self.delivered_bugs = self.effort ** (2 / 3) / 3000        # Calculate number of delivered bugs.
+        self.vocabulary     = self.n1 + self.n2                                  # Calculate vocabulary.
+        self.lenght         = self.N1 + self.N2                                  # Calculate length.
+        self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
+        self.volume         = self.lenght * log2(self.vocabulary)                # Calculate volume.
+        self.difficulty     = (self.n1 / 2) * (self.N2 / self.n2)                # Calculate difficulty.
+        self.level          = 1 / self.difficulty                                # Calculate program level.
+        self.intelligence   = self.level * self.volume                           # Calculate program intelligence
+        self.effort         = self.difficulty * self.volume                      # Calculate effort.
+        self.time_required  = self.effort / 18                                   # Calculate time to program (seconds).
+        self.delivered_bugs = self.effort ** (2 / 3) / 3000                      # Calculate number of delivered bugs.
     
     def add_McComplexity(self) -> None:
         """
