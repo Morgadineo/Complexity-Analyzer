@@ -4,6 +4,7 @@ Examples/
 # Ambiente virtual python
 .venv/
 .idea/
+__pycache__/
 
 # Diretório dos códigos que não serão utilizados no momento.
 Placeholders/
