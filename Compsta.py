@@ -7,10 +7,9 @@ Description: Compsta (ComplexityStatistic)
 """ 
 
 from typing import Generator
-from C_module import *
 from os import listdir
 from tabulate import tabulate
-import C_module
+import Comvis
 
 class ComplexityStatistic:
     """Docstring for ComplexityStatistic. """
@@ -41,12 +40,33 @@ class ComplexityStatistic:
         self.avg_time_required  : float = 0.0
         self.avg_delivered_bugs : float = 0.0
 
-        self.avg_cognitive_complexity : float = 0.0
-        self.avg_cyclomatic_complexity: float = 0.0
+        self.avg_number_of_functions  : int = 0
+        self.avg_cognitive_complexity : int = 0
+        self.avg_cyclomatic_complexity: int = 0
 
         self.calculate_metrics()
 
+        #==> Parsed files <==#
+        self.files = self.get_total_halstead()
 
+    def print_total_halstead(self) -> None:
+        sorted_dict = dict(sorted(self.files.items(), key=lambda item: item[1]))
+
+        for filename in sorted_dict.keys():
+            print(f"{filename[:20]}: {sorted_dict[filename]}")
+
+    def get_total_halstead(self) -> dict[str, int]:
+        """
+        Sum all halstead metrics and return.
+        """
+        total_halstead: dict[str, int] = dict()
+        total: int = 0
+
+        for file in self.get_analyzed_files():
+            total = file.vocabulary + file.lenght
+            total_halstead.update({file.filename: total})
+
+        return total_halstead
 
     def print_avg_metrics(self) -> None:
         """
@@ -72,15 +92,14 @@ class ComplexityStatistic:
                 ["Time required"        , round(self.avg_time_required, decimals)],
                 ["Delivered bugs"       , round(self.avg_delivered_bugs, decimals)],
                 ["Cyclomatic complexity", round(self.avg_cyclomatic_complexity, decimals)],
-                ["Cognitive complexity" , round(self.avg_cognitive_complexity, decimals)],
                 ]
         print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
-
 
     def calculate_metrics(self) -> None:
         """
         Calculate the average metrics.
         """
+        #==> Metrics <==#
         avg_total_lines   : float = 0.0 
         avg_effect_lines  : float = 0.0
         avg_n1            : float = 0.0
@@ -98,8 +117,9 @@ class ComplexityStatistic:
         avg_time_required : float = 0.0
         avg_delivered_bugs: float = 0.0
 
-        avg_cognitive_complexity : float = 0.0
-        avg_cyclomatic_complexity: float = 0.0
+        avg_number_of_functions  : int = 0
+        avg_cognitive_complexity : int = 0
+        avg_cyclomatic_complexity: int = 0
 
         for visitor in self.get_analyzed_files():
             """Sum the visitor complexity metrics"""
@@ -120,6 +140,9 @@ class ComplexityStatistic:
             avg_time_required  += visitor.time_required
             avg_delivered_bugs += visitor.delivered_bugs
 
+            avg_number_of_functions   += visitor.number_of_functions
+            avg_cyclomatic_complexity += visitor.total_mcc
+
         self.avg_total_lines     = avg_total_lines / self.files_qtt
         self.avg_effective_lines = avg_effect_lines / self.files_qtt
         self.avg_n1              = avg_n1 / self.files_qtt
@@ -137,11 +160,11 @@ class ComplexityStatistic:
         self.avg_time_required   = avg_time_required / self.files_qtt
         self.avg_delivered_bugs  = avg_delivered_bugs / self.files_qtt
 
-        self.avg_cognitive_complexity  = avg_cognitive_complexity / self.files_qtt
-        self.avg_cyclomatic_complexity = avg_cyclomatic_complexity / self.files_qtt
+        self.avg_number_of_functions   = round(avg_number_of_functions / self.files_qtt)
+        self.avg_cognitive_complexity  = round(avg_cognitive_complexity / self.files_qtt)
+        self.avg_cyclomatic_complexity = round(avg_cyclomatic_complexity / self.files_qtt)
 
-
-    def get_analyzed_files(self) -> Generator[ComplexityVisitor, None, None]:
+    def get_analyzed_files(self) -> Generator[Comvis.ParsedCode, None, None]:
         """
         Get all the analized files, create a ComplexityVisitor and return then.
 
@@ -152,7 +175,7 @@ class ComplexityStatistic:
         """
         for precompiled_file in self.get_precompiled_files():
             precompiled_file = precompiled_file[:-2] # Remove the file extension.
-            analized_file: ComplexityVisitor = C_module.ComplexityVisitor(precompiled_file)
+            analized_file: Comvis.ParsedCode = Comvis.ParsedCode(precompiled_file)
             yield analized_file
 
     def get_precompiled_files(self) -> Generator[str, None, None]:
@@ -178,3 +201,4 @@ class ComplexityStatistic:
 if __name__ == "__main__":
     compsta = ComplexityStatistic("Examples") 
     compsta.print_avg_metrics()
+    compsta.print_total_halstead()
