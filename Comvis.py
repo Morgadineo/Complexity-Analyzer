@@ -1,5 +1,5 @@
-from ast import operator, parse
-from os import linesep, sep
+from ast import parse
+from os import sep
 from typing    import Any, List, Tuple
 from pycparser import parse_file, c_ast
 from math      import dist, log2
@@ -42,10 +42,14 @@ class ParsedCode(c_ast.NodeVisitor):
         # Values: Lists of operator ocurrence lines.
         ######################################################################
         self.operators         : dict[str, list[int]]      = dict()
-        self.distict_func_calls: set[str]                  = set()
-        self.functions         : dict[str, dict[str, int]] = dict()
 
         #--> Metrics <-- ######################################################
+
+        #==> Functions Complexity <==#
+        self.functions          : dict[str, dict[str, int]] = dict()
+        self.number_of_functions: int                       = len(self.functions.keys())
+        self.distict_func_calls : set[str]                  = set()
+
         #==> Ciclomatic Complexity <==#
         self.total_mcc: int = 0 # Total McCabe Complexity
 
@@ -58,8 +62,8 @@ class ParsedCode(c_ast.NodeVisitor):
         self.n2            : int   = 0  # Number of distinct operands (n2).
         self.N1            : int   = 0  # Total number of operators (N1).
         self.N2            : int   = 0  # Total number of operands (N2).
-        self.vocabulary    : float = 0  # Program vocabulary (n).
-        self.lenght        : float = 0  # Program lenght (N).
+        self.vocabulary    : int   = 0  # Program vocabulary (n).
+        self.lenght        : int   = 0  # Program lenght (N).
         self.estimated_len : float = 0  # Estimated program lenght (^N).
         self.volume        : float = 0  # Volume (V).
         self.difficulty    : float = 0  # Difficulty (D).
@@ -69,7 +73,28 @@ class ParsedCode(c_ast.NodeVisitor):
         self.time_required : float = 0  # Time required to program (T).
         self.delivered_bugs: float = 0  # Estimated number of bugs (B).
 
-        #--> Iniciation <-- ###################################################
+        #==> Cognitive Metric <==#
+        self.cognitive_type_weight: dict[str, int] = {
+            "int"   : 1,
+            "float" : 1,
+            "double": 1,
+            "string": 3,
+            "array" : 3,
+            "ptr"   : 3,
+            "struct": 2,
+        }
+
+        self.cognitive_statement_weight: dict[str, int] = {
+            "if"     : 1,
+            "switch" : 2,
+            "while"  : 2,
+            "doWhile": 2,
+            "for"    : 3,
+        }
+
+        self.total_cognitive_complexity: int = 0
+
+        #--> Initialization <-- ###################################################
         self.ast: c_ast.FileAST = parse_file(self.file_clean, use_cpp=False)
         self.visit(self.ast)
 
@@ -181,6 +206,7 @@ class ParsedCode(c_ast.NodeVisitor):
                   ]
         print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
         
+        #==> Uncomment to print operators and operands
         self.print_operators()
         self.print_operands()
 
@@ -255,6 +281,7 @@ class ParsedCode(c_ast.NodeVisitor):
         
         print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
 
+    #=> Not done
     def print_functions(self) -> None:
         print(self.functions)
 
@@ -282,7 +309,10 @@ class ParsedCode(c_ast.NodeVisitor):
 
         match(node_type):
 
-            case "TypeDecl":
+            case "Typedef":
+                operator = "typedef"
+
+            case "TypeDecl" | "Decl":
                 operator = "="
 
             case "ArrayRef":
@@ -302,9 +332,6 @@ class ParsedCode(c_ast.NodeVisitor):
 
             case "ArrayDecl":
                 operator = "[]"
-
-            case "Decl":
-                operator = "="
 
             case "Return":
                 operator = "return"
@@ -341,14 +368,43 @@ class ParsedCode(c_ast.NodeVisitor):
 
     ## ==> Visit nodes <== ################################################
 
+    def visit_Typedef(self, node: c_ast.Typedef) -> None:
+        """
+        Method called when a Typedef keyword node is visited.
+
+        :param node: A c_ast Typedef node.
+        """
+        if self.is_real_node(node):
+            self.append_operator(node)
+            self.append_operand(node)
+
+    def visit_Struct(self, node: c_ast.Struct) -> None:
+        """
+        Method called when a Struct statement node is visited.
+        
+        :param node: A c_ast Struct node.
+        """
+        self.append_operand(node)
+
+        if node.decls != None:
+            self.visit(node.decls)
+
     def visit_Return(self, node: c_ast.Return) -> None:
+        """
+        Method called when a Return statement node is visited.
+        Returns are considered operators and their return as operands.
+
+        :param node: A c_ast.Return node.
+        """
         self.append_operator(node)
 
-        self.visit(node.expr)
+        #=> Can be a "return;" node.
+        if node.expr != None:
+            self.visit(node.expr)
 
     def visit_DoWhile(self, node: c_ast.DoWhile) -> None:
         """
-        Method called when statement a doWhile node is visited.
+        Method called when a doWhile statement node is visited.
 
         DoWhile are considered operators.
 
@@ -434,8 +490,9 @@ class ParsedCode(c_ast.NodeVisitor):
 
         #--> Visits <--#
         self.visit(node.cond)
-        self.visit(node.iftrue)
-        # Verify if has a else statement.
+
+        if node.iftrue != None:
+            self.visit(node.iftrue)
         if node.iffalse != None:
             self.visit(node.iffalse)
 
@@ -501,10 +558,10 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A c_ast node type.
         """
-        self.current_node_type = "Decl"
 
         # |> As variable DECLaration
-        if self.get_node_value(node) != "_Value":
+        if self.is_real_node(node):
+            self.current_node_type = "Decl"
             self.visit(node.type)
             
             if not node.init is None: 
@@ -575,6 +632,28 @@ class ParsedCode(c_ast.NodeVisitor):
         self.append_operand(node)
 
 ## ==>  Utils Node Methods <==#############################################
+    def is_real_node(self, node: c_ast.Node) -> bool:
+        """
+        Determines whether a given AST node is artificially generated (fake) rather than 
+        originating from the actual C source code.
+
+        A node is considered 'fake' when:
+        - It was inserted by preprocessor directives rather than being part of the original source
+        - It originates from pycparser's fake headers (which include artificial typedefs)
+
+        :param node: A c_ast Node to be validated.
+
+        :return: True if it comes from genuine source code
+                 False if the node is compiler-generated/injected (fake).
+        """
+        node_file: str = str(node.coord).split(":")[0]
+
+        if node_file == self.file_source:
+            return True
+
+        else:
+            return False
+
     def get_node_line(self, node: c_ast.Node) -> int:
         """
         Get the node line of occurrency.
@@ -614,47 +693,83 @@ class ParsedCode(c_ast.NodeVisitor):
 
         match(self.get_node_type(node)):
 
+            case "Typedef":
+                return node.name
+
+            case "Struct" | "ID" | "Decl":
+                return node.name
+
             case "FuncCall":
                 return node.name.name
-
-            case "ID":
-                return node.name
 
             case "Constant":
                 return node.value
 
-            case "UnaryOp":
+            case "UnaryOp" | "BinaryOp" | "Assignment":
                 return node.op
 
             case "TypeDecl":
                 return node.declname
 
-            case "BinaryOp":
-                return node.op
-            
-            case "FuncCall":
-                return node.name
-
             case "FuncDef":
                 return node.decl.name
             
-            case "PtrDecl":
-                return node.type.declname
-
-            case "Assignment":
-                return node.op
-
-            case "Decl":
-                return node.name
-                
-            case "ArrayDecl":
+            case "PtrDecl" | "ArrayDecl":
                 return node.type.declname
 
             case _:
                 raise ValueError(f"Node of type '{self.get_node_type(node)}' is not defined yet")
 
+## ==> Debug methods <==###################################################
+    def is_operand_parsed(self, operand: str) -> bool:
+        """
+        Debug function to verify whether a given operand was successfully parsed 
+        and added to the operands dictionary. If the operand was successfuly
+        parsed, print lines when the operad was found and return true. A empty
+        list is printed if the operand was not found and return false.
+
+        :param operand: The operand string to check for existence in the parser's dictionary.
+        
+        :return: True if the operand was successfully identified and stored; 
+                 False if the operand was not found.
+        """
+        print(f"Checking operand '{operand}' |=>", end=" ")
+
+        if operand in self.operands.keys():
+            print(self.operands[operand])
+            return True
+
+        else:
+            print("[]")
+            return False
+
+    def is_operator_parsed(self, operator: str) -> bool:
+        """
+        Debug function to verify whether a given operator was sucessfully
+        parsed and added to the operands dictionary. If the operand was
+        successfuly parsed, print lines when the operator was found and return
+        true. A empty list is printed if the operator was not found and false 
+        is returned.
+
+        :param operator: The operator string to check for existence in 
+                         parser's dictionary.
+
+        :return: True if the operator was sucessfully identified and stored;
+                 False if the operand was not found.
+        """
+        print(f"Checking operator '{operator}' |=>", end=" ")
+
+        if operator in self.operators.keys():
+            print(self.operators[operator])
+            return True
+        else:
+            print("[]")
+            return False
+
 if __name__ == "__main__":
-    code = "euclids_gcd"
+    code = "gold_standart"
 
     code = ParsedCode(code)
     code.print_complexities()
+    code.is_operand_parsed("funcionario_pt")
+    code.is_operator_parsed("typedef")
