@@ -1,5 +1,5 @@
-from ast import parse
-from os import sep
+from ast       import parse
+from os        import sep
 from typing    import Any, List, Tuple
 from pycparser import parse_file, c_ast
 from math      import dist, log2
@@ -12,7 +12,7 @@ class ParsedCode(c_ast.NodeVisitor):
         :param filename: Name of the file to be analyzed, without extension. 
         """
         #--> File <-- #########################################################
-        self.filename: str = filename                               # Raw file name
+        self.filename   : str = filename                           # Raw file name
         self.file_dir   : str = "Examples"                          # Dir with the source file and the pre-compiled file
         self.file_path  : str = f"{self.file_dir}/{self.filename}"  # File path without sufix
         self.file_clean : str = f"{self.file_path}.i"               # Path to the pre-compiled file
@@ -207,8 +207,8 @@ class ParsedCode(c_ast.NodeVisitor):
         print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
         
         #==> Uncomment to print operators and operands
-        self.print_operators()
-        self.print_operands()
+        # self.print_operators()
+        # self.print_operands()
 
     def count_operators(self) -> tuple[int, int]:
         """
@@ -246,7 +246,7 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A FuncDef node that contains the node.
         """
-        #--> Functions Metrics 
+        #--> Functions Metrics <--#
         functions_info: list[str] = ["McC"]  
 
         func_name: str = self.get_node_value(node)
@@ -375,8 +375,8 @@ class ParsedCode(c_ast.NodeVisitor):
         :param node: A c_ast Typedef node.
         """
         if self.is_real_node(node):
-            self.append_operator(node)
-            self.append_operand(node)
+            self.append_operator(node) # Halstaed Metric
+            self.append_operand(node)  # Halstead Metric
 
     def visit_Struct(self, node: c_ast.Struct) -> None:
         """
@@ -384,8 +384,9 @@ class ParsedCode(c_ast.NodeVisitor):
         
         :param node: A c_ast Struct node.
         """
-        self.append_operand(node)
+        self.append_operand(node) # Halstead Metric
 
+        #>>> Visit <<<#
         if node.decls != None:
             self.visit(node.decls)
 
@@ -396,9 +397,10 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A c_ast.Return node.
         """
-        self.append_operator(node)
+        self.append_operator(node) # Halstead Metric
 
-        #=> Can be a "return;" node.
+        #=> Can be a empty "return;" node.
+        #>>> Visit <<<#
         if node.expr != None:
             self.visit(node.expr)
 
@@ -417,10 +419,11 @@ class ParsedCode(c_ast.NodeVisitor):
         
         :param node: A c_ast DoWhile statement node.
         """
-        self.add_McComplexity()
+        self.add_McComplexity() # McCabe Complexity
 
-        self.append_operator(node)
+        self.append_operator(node) # Halstead Metric
         
+        #>>> Visit <<<#
         self.visit(node.cond)
         self.visit(node.stmt)
 
@@ -438,10 +441,11 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A c_ast While statement node.
         """
-        self.add_McComplexity()
+        self.add_McComplexity() # McCabe Complexity
 
-        self.append_operator(node)
+        self.append_operator(node) # Halstead Metric
 
+        #>>> Visit <<<#
         self.visit(node.cond)
         self.visit(node.stmt) 
 
@@ -461,10 +465,11 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A c_ast For statement node.
         """
-        self.add_McComplexity()
+        self.add_McComplexity() # McCabe Complexity
 
-        self.append_operator(node)
+        self.append_operator(node) # Halstead Metric
 
+        #>>> Visit <<<#
         self.visit(node.init)
         self.visit(node.cond)
         self.visit(node.next)
@@ -485,10 +490,11 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A c_ast if statement node.
         """
-        self.add_McComplexity()
-        self.append_operator(node)
+        self.add_McComplexity() # McCabe Complexity
 
-        #--> Visits <--#
+        self.append_operator(node) # Halstead Metric
+
+        #>>> Visit <<<#
         self.visit(node.cond)
 
         if node.iftrue != None:
@@ -510,7 +516,9 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A assignment node.
         """
-        self.append_operator(node)
+        self.append_operator(node) # Halstead Metric
+
+        #>>> Visit <<<#
         self.visit(node.lvalue)
         self.visit(node.rvalue)
 
@@ -521,10 +529,10 @@ class ParsedCode(c_ast.NodeVisitor):
         
         :param node: A c_ast array declaration node.
         """
-        self.append_operator(node)
+        self.append_operator(node) # Halstead Metric
+        self.append_operand(node)  # Halstead Metric
 
-        self.append_operand(node)
-
+        #>>> Visit <<<#
         self.visit(node.dim)
 
     def visit_ArrayRef(self, node: c_ast.ArrayRef) -> None:
@@ -536,49 +544,73 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A arrayRef node.
         """
-        self.append_operator(node)
+        self.append_operator(node) # Halstead Metric
 
+        #>>> Visit <<<#
         self.visit(node.name)
         self.visit(node.subscript)
 
     def visit_FuncDef(self, node: c_ast.FuncDef) -> None:
         """
         Function called when a funcdef node is visited.
+        When a function definition is visited, the parser store what function
+        is he visiting and initialize in the dictionary. This is made for store
+        individual function metrics.
+
+        In the pre processing, functions prototype are replaced by the func
+        definition.
 
         :param node: A definition function node.
         """
         self.current_func = self.get_node_value(node)
         self.initialize_function(node)
 
+        #>>> Visit <<<#
         self.visit(node.body)
 
     def visit_Decl(self, node: c_ast.Decl) -> None:
         """
         This function is called when a Declaration node is visited.
+        Declarations are generic nodes, so they have internal subtypes.
+
+        Types of Decl:
+        * TypeDecl: Types of variables.
+        * FuncDecl: Function declaration.
+
+        Declarations examples:
+        * Declaration of parameters: void func(int decl_var); (TypeDecl)
+        * Declaration of functions : void func_decl(int x);   (FuncDecl)
 
         :param node: A c_ast node type.
         """
 
+        print(node)
+
         # |> As variable DECLaration
         if self.is_real_node(node):
             self.current_node_type = "Decl"
+
+            #>>> Visit <<<#
             self.visit(node.type)
             
             if not node.init is None: 
                 self.append_operator(node)
                 self.append_operand(node.type)
+
+                #>>> Visit <<<#
                 self.visit(node.init)
 
         self.current_node_type = ""
 
     def visit_UnaryOp(self, node: c_ast.UnaryOp) -> None:
         """
-        This function is called when a binary operator node is visited.
+        This function is called when a unary operator node is visited.
 
         :param node: A c_ast node type.
         """
-        self.append_operator(node)
+        self.append_operator(node) # Halstead Metric
 
+        #>>> Visit <<<#
         self.visit(node.expr)
 
     def visit_BinaryOp(self, node: c_ast.BinaryOp) -> None:
@@ -587,7 +619,9 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A c_ast node type.
         """
-        self.append_operator(node)
+        self.append_operator(node) # Halstead Metric
+        
+        #>>> Visit <<<#
         self.visit(node.left)
         self.visit(node.right)
 
@@ -601,22 +635,30 @@ class ParsedCode(c_ast.NodeVisitor):
         """
         
         # |=> Constant as operand:
-        self.append_operand(node)
+        self.append_operand(node) # Halstead Metric
 
     def visit_FuncCall(self, node: c_ast.FuncCall) -> None:
         """
         This function is called when a function_call node is visited.
+
+        Function calls are considered operators and consequently, their
+        arguments are considered operands.
+
+        :param node: A function call node.
         """
-        # |> Function call as operator
+        # |> Function call as operator <|
         self.distict_func_calls.add(self.get_node_value(node))
-        self.append_operator(node)
+
+        self.append_operator(node) # Halstead Metric
 
         # |> Function call as operand
         if self.current_node_type != "":
-            self.append_operand(node)
+            self.append_operand(node) # Halstead Metric
 
         # |> Function args as operands
         self.current_node_type = "FuncCall"
+
+        #>>> Visit <<<#
         if node.args != None:
             for arg in node.args:
                 self.visit(arg)
@@ -629,7 +671,7 @@ class ParsedCode(c_ast.NodeVisitor):
         A identifier (ID) can be the name of a function or a variable.
         """
         # |=> As operand:
-        self.append_operand(node)
+        self.append_operand(node) # Halstead Metric
 
 ## ==>  Utils Node Methods <==#############################################
     def is_real_node(self, node: c_ast.Node) -> bool:
@@ -690,7 +732,6 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :return: A string with the node name.
         """
-
         match(self.get_node_type(node)):
 
             case "Typedef":
@@ -767,9 +808,8 @@ class ParsedCode(c_ast.NodeVisitor):
             return False
 
 if __name__ == "__main__":
-    code = "gold_standart"
+    while(True):
+        code = input("File name: ")
 
-    code = ParsedCode(code)
-    code.print_complexities()
-    code.is_operand_parsed("funcionario_pt")
-    code.is_operator_parsed("typedef")
+        code = ParsedCode(code)
+        code.print_complexities()
