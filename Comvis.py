@@ -1,9 +1,14 @@
 from ast       import parse
+from function  import Function
 from os        import sep
 from typing    import Any, List, Tuple
 from pycparser import parse_file, c_ast
 from math      import dist, log2
-from tabulate  import simple_separated_format, tabulate
+from rich.console import Console
+from rich.columns import Columns
+from rich.table   import Table
+from rich         import box
+from rich.style   import Style
 
 class ParsedCode(c_ast.NodeVisitor):
     """docstring for ParsedCode class"""
@@ -12,7 +17,7 @@ class ParsedCode(c_ast.NodeVisitor):
         :param filename: Name of the file to be analyzed, without extension. 
         """
         #--> File <-- #########################################################
-        self.filename   : str = filename                           # Raw file name
+        self.filename   : str = filename                            # Raw file name
         self.file_dir   : str = "Examples"                          # Dir with the source file and the pre-compiled file
         self.file_path  : str = f"{self.file_dir}/{self.filename}"  # File path without sufix
         self.file_clean : str = f"{self.file_path}.i"               # Path to the pre-compiled file
@@ -20,8 +25,8 @@ class ParsedCode(c_ast.NodeVisitor):
 
 
         #--> Global states <-- ################################################
-        self.current_node: str | None = None
-        self.current_func: str | None = None  
+        self.current_node: str      | None = None
+        self.current_func: Function | None = None  
 
         ####################################################################### 
         # |> variable: self.operands
@@ -46,9 +51,9 @@ class ParsedCode(c_ast.NodeVisitor):
         #--> Metrics <-- ######################################################
 
         #==> Functions Complexity <==#
-        self.functions          : dict[str, dict[str, int]] = dict()
-        self.number_of_functions: int                       = len(self.functions.keys())
-        self.distict_func_calls : set[str]                  = set()
+        self.functions          : set[Function] = set()
+        self.number_of_functions: int           = len(self.functions)
+        self.distict_func_calls : set[str]      = set()
 
         #==> Ciclomatic Complexity <==#
         self.total_mcc: int = 0 # Total McCabe Complexity
@@ -102,10 +107,10 @@ class ParsedCode(c_ast.NodeVisitor):
         self.count_lines()
         self.calculate_halstead()
 
-
 ##=== ===|> Methods <|=== === #################################################
 
     ## ==> Metric methods <== #############################################
+
     def count_lines(self) -> None:
         """
         Count the total lines and the effective lines (non-empty, not comment
@@ -151,8 +156,8 @@ class ParsedCode(c_ast.NodeVisitor):
 
         This method has to be called after the visit of the ast.
         """
-        self.n1, self.N1    = self.count_operators()
-        self.n2, self.N2    = self.count_operands()
+        self.n1, self.N1    = self.count_total_operators()
+        self.n2, self.N2    = self.count_total_operands()
         self.vocabulary     = self.n1 + self.n2                                  # Calculate vocabulary.
         self.lenght         = self.N1 + self.N2                                  # Calculate length.
         self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
@@ -163,6 +168,9 @@ class ParsedCode(c_ast.NodeVisitor):
         self.effort         = self.difficulty * self.volume                      # Calculate effort.
         self.time_required  = self.effort / 18                                   # Calculate time to program (seconds).
         self.delivered_bugs = self.effort ** (2 / 3) / 3000                      # Calculate number of delivered bugs.
+
+        for function in self.functions:
+            function.calculate_halstead()
     
     def add_McComplexity(self) -> None:
         """
@@ -175,42 +183,123 @@ class ParsedCode(c_ast.NodeVisitor):
         """
         if self.current_func != None:
             self.total_mcc += 1
-            self.functions[self.current_func]["McC"] += 1
+            self.current_func.add_McC()
+
+    def append_operator(self, node: c_ast.Node) -> None:
+        """
+        Extract the operator and his line number from a node and append him as
+        a operator. If the node is inside a function node, the operator is
+        storage in the function object.
+
+        The operator dictionary stores the operator as the key and a list of
+        the ocurrence lines as the key.
+
+        :param node: The node to extract the operator and append.
+
+        """
+        operator, line = self.extract_operator(node)
+
+        #==> If inside a function <==#
+        if self.current_func is not None:
+            self.current_func.add_operator(operator, line)
+
+        #==> If not <==#
+        else:
+            if operator in self.operators.keys():
+                self.operators[operator].append(line)
+            else:
+                self.operators.update({operator: [line]})
+
+    def append_operand(self, node: c_ast.Node) -> None:
+        """
+        Extract the operand from a node an adds the operand and its occurrence 
+        line to the operand dictionary.
+
+        Only Constant, ID, TypeDecl nodes can have a operand.
+
+        The operand dictionary stores the operand as the key and a list of the 
+        occurrence lines of the operator as the key.
+
+        :returns: 1 if is a valid node for a operand.
+                  0 if is not a valid node.
+        """
+        operand, line = self.extract_operand(node)
+
+        #==> If inside a function <==#
+        if self.current_func is not None:
+            self.current_func.add_operand(operand, line)
+
+        #==> If not <==#
+        else:
+            if operand in self.operands.keys():
+                self.operands[operand].append(line)
+            else:
+                self.operands.update({operand: [line]})
+
+    def add_CoC(self, node: c_ast.Node) -> None:
+        """
+        Add Cognitive complexity.
+
+        :param node: The node to calculate and add the Coc.
+        """
+        value: int = self.calculate_node_coc(node)
+
+        if self.current_func is not None:
+            self.current_func.add_CoC(value)
 
     ## ==> Auxiliar methods <== ###############################################
+
     def print_complexities(self):
         """Print the code complexity table, list of operands, operators and the functions complexities.
 
         (This function do not calculate the metrics and either generate the AST)
         """
-        print(f"==================/ {self.filename} \\===================================")
-        header = ["Complexity"                  , "Value"]
-        data   = [["Total lines"                , self.total_lines],
-                  ["Effective lines"            , self.effective_lines],
-                  ["Distinct Operators (n1)"    , self.n1],
-                  ["Distinct Operands (n2)"     , self.n2],
-                  ["Total Operators (N1)"       , self.N1],
-                  ["Total Operands (N2)"        , self.N2],
-                  ["Program vocabulary"         , self.vocabulary],
-                  ["Program Lenght"             , self.lenght],
-                  ["Estimated Length"           , f"{self.estimated_len:.1f}"],
-                  ["Volume"                     , f"{self.volume:.1f}"],
-                  ["Difficulty"                 , f"{self.difficulty:.1f}"],
-                  ["Program level"              , f"{self.level:.1f}"],
-                  ["Content Intelligence"       , f"{self.intelligence}"],
-                  ["Effort"                     , f"{self.effort:.1f}"],
-                  ["Required time to program"   , f"{self.time_required:.1f}"],
-                  ["Delivered bugs"             , f"{self.delivered_bugs:.1f}"],
-                  ["CYCLOMATIC COMPLEXITY"]     ,
-                  ["Total Cyclomatic Complexity", self.total_mcc],
-                  ]
-        print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
-        
-        #==> Uncomment to print operators and operands
-        # self.print_operators()
-        # self.print_operands()
+        console = Console()
+    
+        # Create table
+        title: str = f"[bold][#00ffae]{self.filename.upper()}[/]"
+        border_style: Style = Style(color="#000000", bold=True,)
 
-    def count_operators(self) -> tuple[int, int]:
+        table = Table(title=title,
+                      box=box.ROUNDED,
+                      show_header=True,
+                      header_style="bold #ffee00",
+                      border_style=border_style,
+                      )
+
+
+        table.add_column("Complexity", style="cyan")
+        table.add_column("Value", justify="right", style="#1cffa0")
+        
+        table.add_row("Total lines", str(self.total_lines))
+        table.add_row("Effective lines", str(self.effective_lines))
+        
+        table.add_row("─" * 20, "─" * 10, style="dim")
+        
+        table.add_row("Distinct Operators (n1)", str(self.n1))
+        table.add_row("Distinct Operands (n2)", str(self.n2))
+        table.add_row("Total Operators (N1)", str(self.N1))
+        table.add_row("Total Operands (N2)", str(self.N2))
+        table.add_row("Program vocabulary", str(self.vocabulary))
+        table.add_row("Program Length", str(self.lenght))
+        table.add_row("Estimated Length", f"{self.estimated_len:.1f}")
+        table.add_row("Volume", f"{self.volume:.1f}")
+        table.add_row("Difficulty", f"{self.difficulty:.1f}")
+        table.add_row("Program level", f"{self.level:.1f}")
+        table.add_row("Content Intelligence", f"{self.intelligence:.1f}")
+        table.add_row("Effort", f"{self.effort:.1f}")
+        table.add_row("Required time to program", f"{self.time_required:.1f}")
+        table.add_row("Delivered bugs", f"{self.delivered_bugs:.1f}")
+        
+        # Adicionar separador para a complexidade ciclomática
+        table.add_row("─" * 20, "─" * 10, style="dim")
+        table.add_row("[bold]CYCLOMATIC COMPLEXITY[/]", "")
+        table.add_row("Total Cyclomatic Complexity", str(self.total_mcc))
+        
+        # Imprimir a tabela
+        console.print(table)
+
+    def count_total_operators(self) -> tuple[int, int]:
         """
         Method to count the number of distinct operators and total operators.
 
@@ -219,13 +308,14 @@ class ParsedCode(c_ast.NodeVisitor):
         total_operators   : int = 0
         distinct_operators: int = 0
 
-        for operator in self.operators.keys():
-            distinct_operators += 1
-            total_operators    += len(self.operators[operator])
+        for function in self.functions:
+            for operator in function.operators.keys():
+                distinct_operators += 1
+                total_operators    += len(function.operators[operator])
 
         return (distinct_operators, total_operators)
 
-    def count_operands(self) -> tuple[int, int]:
+    def count_total_operands(self) -> tuple[int, int]:
         """
         Method to count the number of distinct operands and total operands.
 
@@ -233,79 +323,34 @@ class ParsedCode(c_ast.NodeVisitor):
         """
         total_operands   : int = 0
         distinct_operands: int = 0
-
-        for operand in self.operands.keys():
-            distinct_operands += 1
-            total_operands    += len(self.operands[operand])
+        
+        for function in self.functions:
+            for operand in function.operands.keys():
+                distinct_operands += 1
+                total_operands    += len(function.operands[operand])
 
         return (distinct_operands, total_operands)
 
-    def initialize_function(self, node: c_ast.FuncDef) -> None:
+    def initialize_function(self, func: Function) -> None:
         """
         Method to initialize a function in the functions dictionary.
 
         :param node: A FuncDef node that contains the node.
         """
-        #--> Functions Metrics <--#
-        functions_info: list[str] = ["McC"]  
+        self.functions.add(func)
 
-        func_name: str = self.get_node_value(node)
-        self.functions.update({func_name: dict()})
-
-        for func_info in functions_info:
-            self.functions[func_name].update({func_info: 0})
-            
-        # McComplexity start with 1 path
-        self.functions[func_name]["McC"] += 1 
-        self.total_mcc += 1
-
-    def print_operators(self) -> None:
+    def extract_operator(self, node: c_ast.Node) -> tuple[str, int]:
         """
-        Print the operators dictionary in a table format.
-        """
-        header = ["Operator", "Total uses", "Used lines"]
-        data = []
-        
-        for op in self.operators:
-            data.append([op, len(self.operators[op]), self.operators[op]])
-        
-        print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
+        Extract the operator from a node and return a str with the operator
+        and the line of ocurrency.
 
-    def print_operands(self) -> None:
-        """Print the operands dictionary in a table format."""
-        header = ["Operand", "Total uses", "Appeared line"]
-        data   = []
+        :param node: The node to extract the operator.
 
-        for op in self.operands:
-            data.append([op, len(self.operands[op]), self.operands[op]])
-        
-        print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
-
-    #=> Not done
-    def print_functions(self) -> None:
-        print(self.functions)
-
-    def show_tree(self) -> None:
-        """
-        Show the Abstract Syntax Tree.
-        """
-
-        self.ast.show(showcoord = True)
-
-    def append_operator(self, node: c_ast.Node) -> None:
-        """
-        Extract the operator from a node and adds the operator and its 
-        ocurrence line to the operator dictionary.
-
-        The operator dictionary stores the operator as the key and a list of
-        the ocurrence lines as the key.
-
-        :returns: 1 if is a valid node for a operator.
-                  0 if is not a valid node.
-
+        :return: A tuple with the name and the line of ocurrency, respectively.
         """
         line     : int = self.get_node_line(node)
         node_type: str = self.get_node_type(node)
+        operator : str = str()
 
         match(node_type):
 
@@ -339,32 +384,95 @@ class ParsedCode(c_ast.NodeVisitor):
             case _:
                 operator: str = self.get_node_value(node)
 
+        return (operator, line)
 
-        if operator in self.operators.keys():
-            self.operators[operator].append(line)
-        else:
-            self.operators.update({operator: [line]})
-
-    def append_operand(self, node: c_ast.Node) -> None:
+    def extract_operand(self, node: c_ast.Node) -> tuple[str, int]:
         """
-        Extract the operand from a node an adds the operand and its occurrence 
-        line to the operand dictionary.
+        Extract the operand from a node and return a tuple with the string
+        operand and the line of ocurrency.
 
-        Only Constant, ID, TypeDecl nodes can have a operand.
+        :param node: The node to extract the operand.
 
-        The operand dictionary stores the operand as the key and a list of the 
-        occurrence lines of the operator as the key.
-
-        :returns: 1 if is a valid node for a operand.
-                  0 if is not a valid node.
+        :return: A tuple with the string operand and the line of ocurrency,
+                 respectively.
         """
         operand: str = self.get_node_value(node)
         line   : int = self.get_node_line(node)
 
-        if operand in self.operands.keys(): # Only append the line ocurrency.
-            self.operands[operand].append(line)
-        else:
-            self.operands.update({operand: [line]}) # Create a register.
+        return (operand, line)
+
+    def print_functions(self) -> None:
+        console = Console()
+
+        title: str = "[bold]Functions Complexity Analysis[/]"
+        border_style: Style = Style(color="#000000", bold=True,)
+
+        table = Table(title=title,
+                      box=box.ROUNDED,
+                      show_header=True,
+                      header_style="bold #ffee00",
+                      border_style=border_style,
+                      )
+        
+        # Add columns
+        table.add_column("Function", style="cyan")
+        table.add_column("Lines", justify="right", style="#1cffa0")
+        table.add_column("Eff.Lines", justify="right", style="#1cffa0")
+        table.add_column("n1", justify="right", style="#1cffa0")
+        table.add_column("n2", justify="right", style="#1cffa0")
+        table.add_column("N1", justify="right", style="#1cffa0")
+        table.add_column("N2", justify="right", style="#1cffa0")
+        table.add_column("Vocabulary", justify="right", style="#1cffa0")
+        table.add_column("lenght", justify="right", style="#1cffa0")
+        table.add_column("Estimated Len", justify="right", style="#1cffa0")
+        table.add_column("Volume", justify="right", style="#1cffa0")
+        table.add_column("Difficulty", justify="right", style="#1cffa0")
+        table.add_column("Level", justify="right", style="#1cffa0")
+        table.add_column("Intelligence", justify="right", style="#1cffa0")
+        table.add_column("Effort", justify="right", style="#1cffa0")
+        table.add_column("Time", justify="right", style="#1cffa0")
+        table.add_column("Bugs", justify="right", style="#1cffa0")
+        table.add_column("McCabe", justify="right", style="#1cffa0")
+        table.add_column("Cognitive", justify="right", style="#1cffa0")
+
+        for function in self.functions:
+            table.add_row(
+                function.func_name, str(function.total_lines),
+                str(function.effective_lines),
+                f"{function.n1}",
+                f"{function.n2}",
+                f"{function.N1}",
+                f"{function.N2}",
+                f"{function.vocabulary}",
+                f"{function.lenght}",
+                f"{function.estimated_len:.1f}",
+                f"{function.volume:.1f}",
+                f"{function.difficulty:.1f}",
+                f"{function.level:.1f}",
+                f"{function.intelligence:.1f}",
+                f"{function.effort:.1f}",
+                f"{function.time_required:.1f}",
+                f"{function.delivered_bugs:.1f}",
+                str(function.total_mcc),
+                str(function.cognitive_complexity),
+            )
+        
+        console.print(table)
+
+        for function in self.functions:
+            f_operators: Table = function.table_operators()
+            f_operands : Table = function.table_operands()
+
+            console.print(Columns([f_operators, f_operands],
+                                  equal=False,
+                                  expand=False,
+                                  align="left"))
+
+    def show_tree(self) -> None:
+        """
+        Show the Abstract Syntax Tree.
+        """
+        self.ast.show(showcoord = True)
 
     ## ==> Visit nodes <== ################################################
 
@@ -562,8 +670,10 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A definition function node.
         """
-        self.current_func = self.get_node_value(node)
-        self.initialize_function(node)
+        function_name: str      = self.get_node_value(node)
+        function     : Function = Function(function_name)
+        self.current_func = function
+        self.initialize_function(function)
 
         #>>> Visit <<<#
         self.visit(node.body)
@@ -583,9 +693,6 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A c_ast node type.
         """
-
-        print(node)
-
         # |> As variable DECLaration
         if self.is_real_node(node):
             self.current_node_type = "Decl"
@@ -601,6 +708,13 @@ class ParsedCode(c_ast.NodeVisitor):
                 self.visit(node.init)
 
         self.current_node_type = ""
+
+    def visit_TypeDecl(self, node: c_ast.TypeDecl) -> None:
+        #>>> Visit <<<#
+        self.visit(node.type)
+
+    def visit_IdentifierType(self, node: c_ast.IdentifierType) -> None:
+        print(node)
 
     def visit_UnaryOp(self, node: c_ast.UnaryOp) -> None:
         """
@@ -762,6 +876,7 @@ class ParsedCode(c_ast.NodeVisitor):
                 raise ValueError(f"Node of type '{self.get_node_type(node)}' is not defined yet")
 
 ## ==> Debug methods <==###################################################
+
     def is_operand_parsed(self, operand: str) -> bool:
         """
         Debug function to verify whether a given operand was successfully parsed 
@@ -808,8 +923,8 @@ class ParsedCode(c_ast.NodeVisitor):
             return False
 
 if __name__ == "__main__":
-    while(True):
-        code = input("File name: ")
+    code = "arredondar_gs"
 
-        code = ParsedCode(code)
-        code.print_complexities()
+    code = ParsedCode(code)
+    code.print_complexities()
+    code.print_functions()
