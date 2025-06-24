@@ -5,11 +5,15 @@ Email      : arthurmorgado7751@email.com
 Github     : https://github.com/Morgadineo
 Description: Compsta (ComplexityStatistic)
 """ 
-
-from typing import Generator
-from os import listdir
-from tabulate import tabulate
+from typing       import Generator
+from os           import listdir
+from tabulate     import tabulate
 import Comvis
+from rich.console import Console
+from rich.columns import Columns
+from rich.table   import Table
+from rich         import box
+from rich.style   import Style
 
 class ComplexityStatistic:
     """Docstring for ComplexityStatistic. """
@@ -74,26 +78,59 @@ class ComplexityStatistic:
         """
         decimals: int = 2
 
-        headers = ["Metric", "Average"]
-        data = [["Total lines"          , round(self.avg_total_lines, decimals)],
-                ["Effective lines"      , round(self.avg_effective_lines, decimals)],
-                ["Distinct operators"   , round(self.avg_n1, decimals)],
-                ["Distinct operands"    , round(self.avg_n2, decimals)],
-                ["Total operators"      , round(self.avg_N1, decimals)],
-                ["Total operands"       , round(self.avg_N2, decimals)],
-                ["Vocabulary"           , round(self.avg_vocabulary, decimals)],
-                ["Lenght"               , round(self.avg_lenght, decimals)],
-                ["Estimated lenght"     , round(self.avg_estimated_len, decimals)],
-                ["Volume"               , round(self.avg_volume, decimals)],
-                ["Difficult"            , round(self.avg_difficulty, decimals)],
-                ["Level"                , round(self.avg_level, decimals)],
-                ["Intelligence"         , round(self.avg_intelligence, decimals)],
-                ["Effort"               , round(self.avg_effort, decimals)],
-                ["Time required"        , round(self.avg_time_required, decimals)],
-                ["Delivered bugs"       , round(self.avg_delivered_bugs, decimals)],
-                ["Cyclomatic complexity", round(self.avg_cyclomatic_complexity, decimals)],
-                ]
-        print(tabulate(data, headers=headers, tablefmt="double_grid", numalign="right"))
+        console = Console()
+
+        title: str = f"[bold][#00ffae]{self.dir_name}[/]"
+
+        border_style: Style = Style(color="#000000", bold=True,)
+
+        table = Table(title=title,
+                      box=box.ROUNDED,
+                      show_header=True,
+                      header_style="bold #ffee00",
+                      border_style=border_style,
+                      )
+        table.add_column("Complexity", style="cyan")
+        table.add_column("Average Value", justify="right", style="#1cffa0")
+        
+        table.add_row("Total lines", str(round(self.avg_total_lines, decimals)))
+
+        table.add_row("Effective lines", str(round(self.avg_effective_lines,
+                                                   decimals)))
+        
+        table.add_row("─" * 20, "─" * 10, style="dim")
+        
+        table.add_row("Distinct Operators (n1)", str(round(self.avg_n1,
+                                                           decimals)))
+        table.add_row("Distinct Operands (n2)", str(round(self.avg_n2,
+                                                          decimals)))
+        table.add_row("Total Operators (N1)", str(round(self.avg_N1, decimals)))
+        table.add_row("Total Operands (N2)", str(round(self.avg_N2, decimals)))
+        table.add_row("Program vocabulary", str(round(self.avg_vocabulary,
+                                                      decimals)))
+        table.add_row("Program Length", str(round(self.avg_lenght, decimals)))
+        table.add_row("Estimated Length", str(round(self.avg_estimated_len,
+                                                   decimals)))
+        table.add_row("Volume", str(round(self.avg_volume, decimals)))
+        table.add_row("Difficulty", str(round(self.avg_difficulty, decimals)))
+        table.add_row("Program level", str(round(self.avg_level, decimals)))
+        table.add_row("Content Intelligence", str(round(self.avg_intelligence,
+                      decimals)))
+        table.add_row("Effort", str(round(self.avg_effort, decimals)))
+        table.add_row("Required time to program",
+                      str(round(self.avg_time_required, decimals)))
+        table.add_row("Delivered bugs", str(round(self.avg_delivered_bugs,
+                      decimals)))
+        
+        # Adicionar separador para a complexidade ciclomática
+        table.add_row("─" * 20, "─" * 10, style="dim")
+        table.add_row("[bold]CYCLOMATIC COMPLEXITY[/]", "")
+        table.add_row("Cyclomatic Complexity",
+                      str(round(self.avg_cyclomatic_complexity, decimals)))
+        
+        # Imprimir a tabela
+        console.print(table)
+
 
     def calculate_metrics(self) -> None:
         """

@@ -78,23 +78,21 @@ class ParsedCode(c_ast.NodeVisitor):
         self.time_required : float = 0  # Time required to program (T).
         self.delivered_bugs: float = 0  # Estimated number of bugs (B).
 
-        #==> Cognitive Metric <==#
-        self.cognitive_type_weight: dict[str, int] = {
-            "int"   : 1,
-            "float" : 1,
-            "double": 1,
-            "string": 3,
-            "array" : 3,
-            "ptr"   : 3,
-            "struct": 2,
-        }
+        self.cognitive_statement_weight: dict[str, int | float] = {
+            "Sequencial": 0,
+            "Break"     : 0,
+            "Continue"  : 0,
+            "Return"    : 0,
+            "If"        : 0,
+            "Switch"    : 0,
+            "If-Else"   : 0,
+            "For"       : 0,
+            "While"     : 0,
+            "Do-While"  : 0,
+            "UDF"       : 0,
+            "Recursion" : 0,
+            "Exception" : 0,
 
-        self.cognitive_statement_weight: dict[str, int] = {
-            "if"     : 1,
-            "switch" : 2,
-            "while"  : 2,
-            "doWhile": 2,
-            "for"    : 3,
         }
 
         self.total_cognitive_complexity: int = 0
@@ -714,7 +712,12 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.type)
 
     def visit_IdentifierType(self, node: c_ast.IdentifierType) -> None:
-        print(node)
+        """
+        This functions is called when a type identifier node is visited.
+
+        :param node: A c_ast TypeDecl node.
+        """
+        pass
 
     def visit_UnaryOp(self, node: c_ast.UnaryOp) -> None:
         """
