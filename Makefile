@@ -6,25 +6,26 @@ FAKE_HEADERS = ../pycparser-main/utils/fake_libc_include
 CC = gcc
 CFLAGS = -E -nostdinc -I$(FAKE_HEADERS) 
 
-# Encontra todos os arquivos .c no diretório Examples
-SRCS = $(wildcard $(SRC_DIR)/*.c)
+# Encontra TODOS os arquivos .c recursivamente em Examples e subpastas
+SRCS = $(shell find $(SRC_DIR) -type f -name '*.c')
 
-# Define os arquivos limpos, pré-processados e compilados
+# Define os arquivos pré-processados (mesma estrutura de pastas, mas com extensão .i)
 PREPROCESSED = $(SRCS:.c=.i)
 
-# Regra padrão: limpar, pré-processar e compilar todos os arquivos
+# Regra padrão: pré-processar todos os arquivos
 all: preprocess
 
-# Regra para pré-processar cada arquivo limpo
+# Regra para pré-processar cada arquivo .c
 %.i: %.c
 	@echo "Pré-processando $<..."
+	@mkdir -p $(dir $@)  # Garante que o diretório de saída existe
 	@$(CC) $(CFLAGS) -o "$@" "$<"
 
-# Pré-processar todos os arquivos limpos
+# Pré-processar todos os arquivos
 preprocess: $(PREPROCESSED)
 
-# Limpar arquivos gerados
+# Limpar arquivos gerados (incluindo subpastas)
 clean:
-	rm -f $(PREPROCESSED)
+	find $(SRC_DIR) -type f -name '*.i' -delete
 
 .PHONY: all preprocess clean

@@ -13,6 +13,7 @@ class HalsteadCalculator:
 		self.lenght        : float = 0
 		self.estimated_len : float = 0
 		self.volume        : float = 0
+		self.estimated_vol : float = 0
 		self.difficulty    : float = 0
 		self.level         : float = 0
 		self.effort        : float = 0
@@ -25,10 +26,11 @@ class HalsteadCalculator:
 		self.lenght         = self.N1 + self.N2  # Calculate length.
 		self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
 		self.volume         = self.lenght * log2(self.vocabulary)  # Calculate volume.
+		self.estimated_vol  = (2 + self.n2) * log2(2 + self.n2) # Calculate estimated volume.
 		self.difficulty     = (self.n1 / 2) * (self.N2 / self.n2)  # Calculate difficulty.
-		self.level          = 1 / self.difficulty  # Calculate program level.
+		self.level          = self.estimated_vol / self.volume
 		self.effort         = self.difficulty * self.volume  # Calculate effort.
-		self.time_required  = self.effort / 18  # Calculate time to program (seconds).
+		self.time_required  = self.effort / 4  # Calculate time to program (seconds).
 		self.delivered_bugs = self.effort ** (2 / 3) / 3000  # Calculate number of delivered bugs.
 
 	def print_metrics(self):
@@ -39,13 +41,14 @@ class HalsteadCalculator:
 				["Total Operands (N2)", self.N2],
 				["Program vocabulary", self.vocabulary],
 				["Program Lenght", self.lenght],
-				["Estimated Length", f"{self.estimated_len:.1f}"],
-				["Volume", f"{self.volume:.1f}"],
-				["Difficulty", f"{self.difficulty:.1f}"],
-				["Program level", f"{self.level:.1f}"],
-				["Effort", f"{self.effort:.1f}"],
-				["Required time to program", f"{self.time_required:.1f}"],
-				["Delivered bugs", f"{self.delivered_bugs:.1f}"],
+				["Estimated Length", f"{self.estimated_len}"],
+				["Volume", f"{self.volume}"],
+				["Estimated Volume", f"{self.estimated_vol}"],
+				["Difficulty", f"{self.difficulty}"],
+				["Program level", f"{self.level}"],
+				["Effort", f"{self.effort}"],
+				["Required time to program", f"{self.time_required}"],
+				["Delivered bugs", f"{self.delivered_bugs}"],
 				]
 		print(tabulate(data, headers=header, tablefmt="double_grid", numalign="right"))
 

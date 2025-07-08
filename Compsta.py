@@ -1,241 +1,157 @@
-"""
-File: compsta.py
-Author     : Arthur Morgado Teixeira
-Email      : arthurmorgado7751@email.com
-Github     : https://github.com/Morgadineo
-Description: Compsta (ComplexityStatistic)
-""" 
-from typing       import Generator
-from os           import listdir
-from tabulate     import tabulate
-import Comvis
+from Comvis import ParsedCode
+from os import listdir
 from rich.console import Console
 from rich.columns import Columns
-from rich.table   import Table
-from rich         import box
-from rich.style   import Style
+from rich.table import Table
+from rich import box
+from rich.style import Style
+import csv
 
-class ComplexityStatistic:
-    """Docstring for ComplexityStatistic. """
+class Compsta:
+    """A class for analyzing and exporting code metrics from preprocessed files.
 
-    def __init__(self, dir_path: str):
+    :param dir_name: Directory containing preprocessed `.i` files.
+    """
+
+    def __init__(self, dir_name: str):
+        """Initialize Compsta with a directory path and load preprocessed files."""
+        self.dir_name: str = dir_name
+
+        # ==> Files <======================================================== #
+        self.parsed_files: list[ParsedCode] = self.get_precompiled_files()
+
+        #==> Metrics <==#
+        self.metrics: list[str] = [
+            "Filename",
+            "Effective Lines",
+            "Number of Functions",
+            "Total McCabe",
+            "Number of distinct operators (n1)",
+            "Number of distinct operands (n2)",
+            "Total number of operators (N1)",
+            "Total number of operands (N2)",
+            "Vocabulary",
+            "Lenght",
+            "Estimated Lenght",
+            "Volume",
+            "Difficulty",
+            "Level",
+            "Intelligence",
+            "Effort",
+            "Time Required",
+            "Delivered bugs",
+            "Average line volume"
+        ]
+
+    def get_precompiled_files(self) -> list[ParsedCode]:
+        """Scan the directory for `.i` files and parse them into `ParsedCode` objects.
+
+        :return: List of parsed files with extracted metrics.
+        :rtype: list[ParsedCode]
         """
-        :param dir_path: The relative or absolute directory name to be analyzed.
-        """
-        self.dir_name : str = dir_path  # Directory to be analyzed
-        # ==> Files <== ===================================================== #
-        self.files_qtt: int = self.count_pre_compiled_files()
+        parsed_files: list[ParsedCode] = []
+        for filename in listdir(self.dir_name):
+            if filename.endswith(".i"):
+                filename = filename[:-2]  # Remove `.i` extension
+                parsed_files.append(ParsedCode(filename, self.dir_name))
+        return parsed_files
 
-        # ==> Metrics <== =================================================== #
-        self.avg_total_lines    : float = 0.0
-        self.avg_effective_lines: float = 0.0
-        self.avg_n1             : float = 0.0
-        self.avg_n2             : float = 0.0
-        self.avg_N1             : float = 0.0
-        self.avg_N2             : float = 0.0
-        self.avg_vocabulary     : float = 0.0
-        self.avg_lenght         : float = 0.0
-        self.avg_estimated_len  : float = 0.0
-        self.avg_volume         : float = 0.0
-        self.avg_difficulty     : float = 0.0
-        self.avg_level          : float = 0.0
-        self.avg_intelligence   : float = 0.0
-        self.avg_effort         : float = 0.0
-        self.avg_time_required  : float = 0.0
-        self.avg_delivered_bugs : float = 0.0
-
-        self.avg_number_of_functions  : int = 0
-        self.avg_cognitive_complexity : int = 0
-        self.avg_cyclomatic_complexity: int = 0
-
-        self.calculate_metrics()
-
-        #==> Parsed files <==#
-        self.files = self.get_total_halstead()
-
-    def print_total_halstead(self) -> None:
-        sorted_dict = dict(sorted(self.files.items(), key=lambda item: item[1]))
-
-        for filename in sorted_dict.keys():
-            print(f"{filename[:20]}: {sorted_dict[filename]}")
-
-    def get_total_halstead(self) -> dict[str, int]:
-        """
-        Sum all halstead metrics and return.
-        """
-        total_halstead: dict[str, int] = dict()
-        total: int = 0
-
-        for file in self.get_analyzed_files():
-            total = file.vocabulary + file.lenght
-            total_halstead.update({file.filename: total})
-
-        return total_halstead
-
-    def print_avg_metrics(self) -> None:
-        """
-        Print the average complexity metrics.
-        """
-        decimals: int = 2
-
-        console = Console()
-
+    def print_files_metrics(self) -> None:
+        """Display a formatted table of code metrics using Rich."""
+        console: Console = Console()
         title: str = f"[bold][#00ffae]{self.dir_name}[/]"
+        border_style: Style = Style(color="#000000", bold=True)
 
-        border_style: Style = Style(color="#000000", bold=True,)
+        # Initialize table
+        table = Table(
+            title=title,
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold #ffee00",
+            border_style=border_style,
+        )
 
-        table = Table(title=title,
-                      box=box.ROUNDED,
-                      show_header=True,
-                      header_style="bold #ffee00",
-                      border_style=border_style,
-                      )
-        table.add_column("Complexity", style="cyan")
-        table.add_column("Average Value", justify="right", style="#1cffa0")
-        
-        table.add_row("Total lines", str(round(self.avg_total_lines, decimals)))
+        # Define columns (abbreviated for readability)
+        table.add_column("Filename", style="cyan", justify="left")
+        table.add_column("EL", justify="left", style="#1cffa0")  # Effective Lines
+        table.add_column("n1", justify="left", style="#1cffa0")  # Distinct operators
+        table.add_column("n2", justify="left", style="#1cffa0")  # Distinct operands
+        table.add_column("N1", justify="left", style="#1cffa0")  # Total operators
+        table.add_column("N2", justify="left", style="#1cffa0")  # Total operands
+        table.add_column("n", justify="left", style="#1cffa0")   # Vocabulary
+        table.add_column("N", justify="left", style="#1cffa0")   # Length
+        table.add_column("^N", justify="left", style="#1cffa0")  # Estimated Length
+        table.add_column("D", justify="left", style="#1cffa0")   # Difficulty
+        table.add_column("L", justify="left", style="#1cffa0")   # Level
+        table.add_column("I", justify="left", style="#1cffa0")   # Intelligence
+        table.add_column("E", justify="left", style="#1cffa0")   # Effort
+        table.add_column("T", justify="left", style="#1cffa0")   # Time Required
+        table.add_column("B", justify="left", style="#1cffa0")   # Delivered Bugs
+        table.add_column("CC", justify="left", style="#1cffa0")  # McCabe Complexity
+        table.add_column("LC", justify="left", style="#1cffa0")  # Avg Line Volume
 
-        table.add_row("Effective lines", str(round(self.avg_effective_lines,
-                                                   decimals)))
+        # Populate rows
+        for file in self.parsed_files:
+            table.add_row(
+                file.filename,
+                str(file.effective_lines),
+                str(file.n1),
+                str(file.n2),
+                str(file.N1),
+                str(file.N2),
+                str(round(file.vocabulary)),
+                str(round(file.lenght)),
+                str(round(file.estimated_len)),
+                str(round(file.difficulty)),
+                str(round(file.level)),
+                str(round(file.intelligence)),
+                str(round(file.effort)),
+                str(round(file.time_required)),
+                str(round(file.delivered_bugs)),
+                str(file.total_mcc),
+                str(round(file.avg_line_volume)),
+            )
         
-        table.add_row("─" * 20, "─" * 10, style="dim")
-        
-        table.add_row("Distinct Operators (n1)", str(round(self.avg_n1,
-                                                           decimals)))
-        table.add_row("Distinct Operands (n2)", str(round(self.avg_n2,
-                                                          decimals)))
-        table.add_row("Total Operators (N1)", str(round(self.avg_N1, decimals)))
-        table.add_row("Total Operands (N2)", str(round(self.avg_N2, decimals)))
-        table.add_row("Program vocabulary", str(round(self.avg_vocabulary,
-                                                      decimals)))
-        table.add_row("Program Length", str(round(self.avg_lenght, decimals)))
-        table.add_row("Estimated Length", str(round(self.avg_estimated_len,
-                                                   decimals)))
-        table.add_row("Volume", str(round(self.avg_volume, decimals)))
-        table.add_row("Difficulty", str(round(self.avg_difficulty, decimals)))
-        table.add_row("Program level", str(round(self.avg_level, decimals)))
-        table.add_row("Content Intelligence", str(round(self.avg_intelligence,
-                      decimals)))
-        table.add_row("Effort", str(round(self.avg_effort, decimals)))
-        table.add_row("Required time to program",
-                      str(round(self.avg_time_required, decimals)))
-        table.add_row("Delivered bugs", str(round(self.avg_delivered_bugs,
-                      decimals)))
-        
-        # Adicionar separador para a complexidade ciclomática
-        table.add_row("─" * 20, "─" * 10, style="dim")
-        table.add_row("[bold]CYCLOMATIC COMPLEXITY[/]", "")
-        table.add_row("Cyclomatic Complexity",
-                      str(round(self.avg_cyclomatic_complexity, decimals)))
-        
-        # Imprimir a tabela
         console.print(table)
 
+    def export_csv(self, file_name: str) -> None:
+        """Export metrics to a CSV file.
 
-    def calculate_metrics(self) -> None:
+        :param file_name: Output filename (without `.csv` extension).
+        :type file_name: str
+        :return: None
         """
-        Calculate the average metrics.
-        """
-        #==> Metrics <==#
-        avg_total_lines   : float = 0.0 
-        avg_effect_lines  : float = 0.0
-        avg_n1            : float = 0.0
-        avg_n2            : float = 0.0
-        avg_N1            : float = 0.0
-        avg_N2            : float = 0.0
-        avg_vocabulary    : float = 0.0
-        avg_lenght        : float = 0.0
-        avg_estimated_len : float = 0.0
-        avg_volume        : float = 0.0
-        avg_difficult     : float = 0.0
-        avg_level         : float = 0.0
-        avg_intelligence  : float = 0.0
-        avg_effort        : float = 0.0
-        avg_time_required : float = 0.0
-        avg_delivered_bugs: float = 0.0
+        data = [self.metrics]  # Header row
 
-        avg_number_of_functions  : int = 0
-        avg_cognitive_complexity : int = 0
-        avg_cyclomatic_complexity: int = 0
+        for file in self.parsed_files:
+            row = [
+                file.filename,
+                file.effective_lines,
+                file.number_of_functions,
+                file.total_mcc,
+                file.n1,
+                file.n2,
+                file.N1,
+                file.N2,
+                file.vocabulary,
+                file.lenght,
+                file.estimated_len,
+                file.volume,
+                file.difficulty,
+                file.level,
+                file.intelligence,
+                file.effort,
+                file.time_required,
+                file.delivered_bugs,
+                file.avg_line_volume,
+            ]
+            data.append(row)
 
-        for visitor in self.get_analyzed_files():
-            """Sum the visitor complexity metrics"""
-            avg_total_lines    += visitor.total_lines
-            avg_effect_lines   += visitor.effective_lines
-            avg_n1             += visitor.n1
-            avg_n2             += visitor.n2
-            avg_N1             += visitor.N1
-            avg_N2             += visitor.N2
-            avg_vocabulary     += visitor.vocabulary
-            avg_lenght         += visitor.lenght
-            avg_estimated_len  += visitor.estimated_len
-            avg_volume         += visitor.volume
-            avg_difficult      += visitor.difficulty
-            avg_level          += visitor.level
-            avg_intelligence   += visitor.intelligence
-            avg_effort         += visitor.effort
-            avg_time_required  += visitor.time_required
-            avg_delivered_bugs += visitor.delivered_bugs
+        with open(f"{file_name}.csv", mode="w", newline="") as file:
+            csv.writer(file).writerows(data)
 
-            avg_number_of_functions   += visitor.number_of_functions
-            avg_cyclomatic_complexity += visitor.total_mcc
 
-        self.avg_total_lines     = avg_total_lines / self.files_qtt
-        self.avg_effective_lines = avg_effect_lines / self.files_qtt
-        self.avg_n1              = avg_n1 / self.files_qtt
-        self.avg_n2              = avg_n2 / self.files_qtt
-        self.avg_N1              = avg_N1 / self.files_qtt
-        self.avg_N2              = avg_N2 / self.files_qtt
-        self.avg_vocabulary      = avg_vocabulary / self.files_qtt
-        self.avg_lenght          = avg_lenght / self.files_qtt
-        self.avg_estimated_len   = avg_estimated_len / self.files_qtt
-        self.avg_volume          = avg_volume / self.files_qtt
-        self.avg_difficulty      = avg_difficult / self.files_qtt
-        self.avg_level           = avg_level / self.files_qtt
-        self.avg_intelligence    = avg_intelligence / self.files_qtt
-        self.avg_effort          = avg_effort / self.files_qtt
-        self.avg_time_required   = avg_time_required / self.files_qtt
-        self.avg_delivered_bugs  = avg_delivered_bugs / self.files_qtt
-
-        self.avg_number_of_functions   = round(avg_number_of_functions / self.files_qtt)
-        self.avg_cognitive_complexity  = round(avg_cognitive_complexity / self.files_qtt)
-        self.avg_cyclomatic_complexity = round(avg_cyclomatic_complexity / self.files_qtt)
-
-    def get_analyzed_files(self) -> Generator[Comvis.ParsedCode, None, None]:
-        """
-        Get all the analized files, create a ComplexityVisitor and return then.
-
-        :param dir_path: Directory path to analyze.
-
-        :return:
-            A ComplexityVisitor object that store the source code complexity metrics.
-        """
-        for precompiled_file in self.get_precompiled_files():
-            precompiled_file = precompiled_file[:-2] # Remove the file extension.
-            analized_file: Comvis.ParsedCode = Comvis.ParsedCode(precompiled_file)
-            yield analized_file
-
-    def get_precompiled_files(self) -> Generator[str, None, None]:
-        """
-        Get all the precompiled files present in "dir_path" and return it one in one.
-        """
-        for filename in listdir(self.dir_name):
-            if filename[-2:] == ".i":
-                yield filename
-
-    def count_pre_compiled_files(self) -> int:
-        """
-        Count the amount of pre-compiled (extension '.i') files present in a directory.
-
-        :return: Quantity of .i files.
-        """
-        files_qtt: int = 0
-        for _ in self.get_precompiled_files():
-            files_qtt += 1
-
-        return files_qtt
-    
 if __name__ == "__main__":
-    compsta = ComplexityStatistic("Examples") 
-    compsta.print_avg_metrics()
-    compsta.print_total_halstead()
+    compsta = Compsta("./Examples/EstruturaDeDadosI/arredondar/")
+    compsta.print_files_metrics()
+    compsta.export_csv("Arredondar")

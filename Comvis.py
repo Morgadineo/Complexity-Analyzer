@@ -1,31 +1,31 @@
-from ast       import parse
-from function  import Function
-from os        import sep
-from typing    import Any, List, Tuple
-from pycparser import parse_file, c_ast
-from math      import dist, log2
-from rich.console import Console
-from rich.columns import Columns
-from rich.table   import Table
-from rich         import box
-from rich.style   import Style
+from objects.function import Function
+from ast              import parse
+from os               import sep
+from typing           import Any, List, Tuple
+from pycparser        import parse_file, c_ast
+from math             import dist, log2
+from rich.console     import Console
+from rich.columns     import Columns
+from rich.table       import Table
+from rich             import box
+from rich.style       import Style
 
 class ParsedCode(c_ast.NodeVisitor):
     """docstring for ParsedCode class"""
-    def __init__(self, filename: str) -> None:
+    def __init__(self, filename: str, file_dir: str = "Examples") -> None:
         """
         :param filename: Name of the file to be analyzed, without extension. 
         """
         #--> File <-- #########################################################
         self.filename   : str = filename                            # Raw file name
-        self.file_dir   : str = "Examples"                          # Dir with the source file and the pre-compiled file
+        self.file_dir   : str = file_dir                       # Dir with the source file and the pre-compiled file
         self.file_path  : str = f"{self.file_dir}/{self.filename}"  # File path without sufix
         self.file_clean : str = f"{self.file_path}.i"               # Path to the pre-compiled file
         self.file_source: str = f"{self.file_path}.c"               # Path to the source code
 
 
         #--> Global states <-- ################################################
-        self.current_node: str      | None = None
+        self.current_node_type: str      | None = None
         self.current_func: Function | None = None  
 
         ####################################################################### 
@@ -78,6 +78,9 @@ class ParsedCode(c_ast.NodeVisitor):
         self.time_required : float = 0  # Time required to program (T).
         self.delivered_bugs: float = 0  # Estimated number of bugs (B).
 
+        self.avg_line_volume: float = 0
+
+        #==> Not implemented yet <==#
         self.cognitive_statement_weight: dict[str, int | float] = {
             "Sequencial": 0,
             "Break"     : 0,
@@ -94,7 +97,6 @@ class ParsedCode(c_ast.NodeVisitor):
             "Exception" : 0,
 
         }
-
         self.total_cognitive_complexity: int = 0
 
         #--> Initialization <-- ###################################################
@@ -167,6 +169,8 @@ class ParsedCode(c_ast.NodeVisitor):
         self.time_required  = self.effort / 18                                   # Calculate time to program (seconds).
         self.delivered_bugs = self.effort ** (2 / 3) / 3000                      # Calculate number of delivered bugs.
 
+        self.avg_line_volume = self.volume / self.effective_lines
+
         for function in self.functions:
             function.calculate_halstead()
     
@@ -234,17 +238,6 @@ class ParsedCode(c_ast.NodeVisitor):
             else:
                 self.operands.update({operand: [line]})
 
-    def add_CoC(self, node: c_ast.Node) -> None:
-        """
-        Add Cognitive complexity.
-
-        :param node: The node to calculate and add the Coc.
-        """
-        value: int = self.calculate_node_coc(node)
-
-        if self.current_func is not None:
-            self.current_func.add_CoC(value)
-
     ## ==> Auxiliar methods <== ###############################################
 
     def print_complexities(self):
@@ -293,7 +286,10 @@ class ParsedCode(c_ast.NodeVisitor):
         table.add_row("─" * 20, "─" * 10, style="dim")
         table.add_row("[bold]CYCLOMATIC COMPLEXITY[/]", "")
         table.add_row("Total Cyclomatic Complexity", str(self.total_mcc))
-        
+
+        table.add_row("─" * 20, "─" * 10, style="dim")
+        table.add_row("Average line volume", str(round(self.avg_line_volume)))
+
         # Imprimir a tabela
         console.print(table)
 
@@ -931,3 +927,4 @@ if __name__ == "__main__":
     code = ParsedCode(code)
     code.print_complexities()
     code.print_functions()
+
