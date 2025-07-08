@@ -58,6 +58,7 @@ class ParsedCode(c_ast.NodeVisitor):
         self.functions          : set[Function] = set()
         self.number_of_functions: int           = len(self.functions)
         self.distict_func_calls : set[str]      = set()
+        self.total_func_calls   : int           = 0
 
         #==> Ciclomatic Complexity <==#
         self.total_mcc: int = 0 # Total McCabe Complexity
@@ -306,7 +307,10 @@ class ParsedCode(c_ast.NodeVisitor):
         table.add_row("Total Cyclomatic Complexity", str(self.total_mcc))
 
         table.add_row("─" * 20, "─" * 10, style="dim")
+        table.add_row("[bold]OTHERS[/]", "")
         table.add_row("Average line volume", str(round(self.avg_line_volume)))
+
+        table.add_row("Number of functions calls", str(self.total_func_calls))
 
         # Imprimir a tabela
         console.print(table)
@@ -778,6 +782,7 @@ class ParsedCode(c_ast.NodeVisitor):
         :param node: A function call node.
         """
         # |> Function call as operator <|
+        self.total_func_calls += 1
         self.distict_func_calls.add(self.get_node_value(node))
 
         self.append_operator(node) # Halstead Metric
@@ -941,7 +946,7 @@ class ParsedCode(c_ast.NodeVisitor):
 
 if __name__ == "__main__":
     dirs = "./Examples/EstruturaDeDadosI/leibniz/"
-    code = "samuelbsantos66@gmail.com_2_leibniz"
+    code = "abrantesasf@computacaoraiz.com.br_1_leibniz"
 
     code = ParsedCode(code, dirs)
     code.print_complexities()

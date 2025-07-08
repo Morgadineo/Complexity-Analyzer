@@ -10,6 +10,7 @@ class Function:
     def __init__(self, func_name: str) -> None:
         #==> Function info <==#
         self.func_name: str = func_name
+        self.calls    : int = 0
 
         ####################################################################### 
         # |> variable: self.operands
@@ -103,6 +104,7 @@ class Function:
         return table
 
     #===> Metric Methods <====================================================#
+
     def add_CoC(self, value: int) -> None:
         self.cognitive_complexity += value
 
