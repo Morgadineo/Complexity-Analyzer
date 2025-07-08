@@ -1,3 +1,5 @@
+import pycparser
+from pycparser import plyparser
 from objects.function import Function
 from ast              import parse
 from os               import sep
@@ -19,12 +21,14 @@ class ParsedCode(c_ast.NodeVisitor):
         #--> File <-- #########################################################
         self.filename   : str = filename                            # Raw file name
         self.file_dir   : str = file_dir                       # Dir with the source file and the pre-compiled file
-        self.file_path  : str = f"{self.file_dir}/{self.filename}"  # File path without sufix
+        self.file_path  : str = f"{self.file_dir}{self.filename}"  # File path without sufix
         self.file_clean : str = f"{self.file_path}.i"               # Path to the pre-compiled file
         self.file_source: str = f"{self.file_path}.c"               # Path to the source code
 
 
         #--> Global states <-- ################################################
+        self.has_errors: bool = False
+
         self.current_node_type: str      | None = None
         self.current_func: Function | None = None  
 
@@ -100,14 +104,28 @@ class ParsedCode(c_ast.NodeVisitor):
         self.total_cognitive_complexity: int = 0
 
         #--> Initialization <-- ###################################################
-        self.ast: c_ast.FileAST = parse_file(self.file_clean, use_cpp=False)
-        self.visit(self.ast)
+        self.run_parser()
 
         #==> Calculate Metrics <==#
-        self.count_lines()
-        self.calculate_halstead()
 
 ##=== ===|> Methods <|=== === #################################################
+
+    def run_parser(self):
+        """
+        Method to run the parser class.
+        """
+        try:
+            self.ast: c_ast.FileAST = parse_file(self.file_clean, use_cpp=False)
+            self.visit(self.ast)
+
+        except plyparser.ParseError:
+            Console().print(f"PARSE ERROR IN '{self.file_path}' IGNORING",
+                            style="bold red")
+            self.has_errors = True
+
+        else:
+            self.count_lines()
+            self.calculate_halstead()
 
     ## ==> Metric methods <== #############################################
 
@@ -922,9 +940,10 @@ class ParsedCode(c_ast.NodeVisitor):
             return False
 
 if __name__ == "__main__":
-    code = "arredondar_gs"
+    dirs = "./Examples/EstruturaDeDadosI/leibniz/"
+    code = "samuelbsantos66@gmail.com_2_leibniz"
 
-    code = ParsedCode(code)
+    code = ParsedCode(code, dirs)
     code.print_complexities()
     code.print_functions()
 

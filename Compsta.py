@@ -1,3 +1,5 @@
+from sys import exception
+from typing import final
 from Comvis import ParsedCode
 from os import listdir
 from rich.console import Console
@@ -12,7 +14,6 @@ class Compsta:
 
     :param dir_name: Directory containing preprocessed `.i` files.
     """
-
     def __init__(self, dir_name: str):
         """Initialize Compsta with a directory path and load preprocessed files."""
         self.dir_name: str = dir_name
@@ -22,6 +23,7 @@ class Compsta:
 
         #==> Metrics <==#
         self.metrics: list[str] = [
+            "Index",
             "Filename",
             "Effective Lines",
             "Number of Functions",
@@ -53,7 +55,18 @@ class Compsta:
         for filename in listdir(self.dir_name):
             if filename.endswith(".i"):
                 filename = filename[:-2]  # Remove `.i` extension
-                parsed_files.append(ParsedCode(filename, self.dir_name))
+                
+                try:
+                    parsed_code = ParsedCode(filename, self.dir_name)
+
+                    if not parsed_code.has_errors:
+                        parsed_files.append(parsed_code)
+                
+                except Exception as e:
+                    Console().print(f"ERROR PROCESSING '{filename}': {str(e)} - IGNORING",
+                                  style="bold yellow")
+                    continue
+
         return parsed_files
 
     def print_files_metrics(self) -> None:
@@ -123,8 +136,10 @@ class Compsta:
         """
         data = [self.metrics]  # Header row
 
+        index = 0
         for file in self.parsed_files:
             row = [
+                index,
                 file.filename,
                 file.effective_lines,
                 file.number_of_functions,
@@ -146,12 +161,13 @@ class Compsta:
                 file.avg_line_volume,
             ]
             data.append(row)
+            index += 1
 
         with open(f"{file_name}.csv", mode="w", newline="") as file:
             csv.writer(file).writerows(data)
 
 
 if __name__ == "__main__":
-    compsta = Compsta("./Examples/EstruturaDeDadosI/arredondar/")
+    compsta = Compsta("./Examples/EstruturaDeDadosI/inverter/")
     compsta.print_files_metrics()
-    compsta.export_csv("Arredondar")
+    compsta.export_csv("Inverter")
