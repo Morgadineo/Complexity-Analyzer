@@ -17,14 +17,14 @@ class ParsedCode(c_ast.NodeVisitor):
     def __init__(self, filename: str, file_dir: str = "Examples") -> None:
         """
         :param filename: Name of the file to be analyzed, without extension. 
+        :param file_dir: Path to the file_dir.
         """
         #--> File <-- #########################################################
-        self.filename   : str = filename                            # Raw file name
-        self.file_dir   : str = file_dir                       # Dir with the source file and the pre-compiled file
+        self.filename   : str = filename                           # Raw file name
+        self.file_dir   : str = self.treat_file_dir(file_dir)      # Dir with the source file and the pre-compiled file
         self.file_path  : str = f"{self.file_dir}{self.filename}"  # File path without sufix
-        self.file_clean : str = f"{self.file_path}.i"               # Path to the pre-compiled file
-        self.file_source: str = f"{self.file_path}.c"               # Path to the source code
-
+        self.file_clean : str = f"{self.file_path}.i"              # Path to the pre-compiled file
+        self.file_source: str = f"{self.file_path}.c"              # Path to the source code
 
         #--> Global states <-- ################################################
         self.has_errors: bool = False
@@ -118,17 +118,23 @@ class ParsedCode(c_ast.NodeVisitor):
         try:
             self.ast: c_ast.FileAST = parse_file(self.file_clean, use_cpp=False)
             self.visit(self.ast)
+            self.calculate_metrics()
 
         except plyparser.ParseError:
-            Console().print(f"PARSE ERROR IN '{self.file_path}' IGNORING",
+            Console().print(f"PARSE ERROR IN '{self.file_path}' - IGNORING",
                             style="bold red")
             self.has_errors = True
-
-        else:
-            self.count_lines()
-            self.calculate_halstead()
+            raise
 
     ## ==> Metric methods <== #############################################
+
+    def calculate_metrics(self):
+        """
+        Method to call all the others calculate metrics functions
+        """
+        self.count_lines()
+        self.calculate_halstead()
+        self.calculate_total_McC()
 
     def count_lines(self) -> None:
         """
@@ -192,10 +198,20 @@ class ParsedCode(c_ast.NodeVisitor):
 
         for function in self.functions:
             function.calculate_halstead()
+
+    def calculate_total_McC(self):
+        """
+        Calculate and set the total number of paths present in the code.
+        Is the sum of all functions paths and set the total_mcc variable.
+
+        """
+
+        for function in self.functions:
+            self.total_mcc += function.total_mcc
     
     def add_McComplexity(self) -> None:
         """
-        Add 1 to total ciclomatic complexity and 1 for the current function
+        Add 1 for the current function
         ciclomatic complexity.
 
         The add 1 to total ciclomatic complexity is needed when a function
@@ -203,7 +219,6 @@ class ParsedCode(c_ast.NodeVisitor):
 
         """
         if self.current_func != None:
-            self.total_mcc += 1
             self.current_func.add_McC()
 
     def append_operator(self, node: c_ast.Node) -> None:
@@ -295,7 +310,7 @@ class ParsedCode(c_ast.NodeVisitor):
         table.add_row("Estimated Length", f"{self.estimated_len:.1f}")
         table.add_row("Volume", f"{self.volume:.1f}")
         table.add_row("Difficulty", f"{self.difficulty:.1f}")
-        table.add_row("Program level", f"{self.level:.1f}")
+        table.add_row("Program level", f"{self.level:.3f}")
         table.add_row("Content Intelligence", f"{self.intelligence:.1f}")
         table.add_row("Effort", f"{self.effort:.1f}")
         table.add_row("Required time to program", f"{self.time_required:.1f}")
@@ -657,7 +672,8 @@ class ParsedCode(c_ast.NodeVisitor):
         self.append_operand(node)  # Halstead Metric
 
         #>>> Visit <<<#
-        self.visit(node.dim)
+        if node.dim is not None:
+            self.visit(node.dim)
 
     def visit_ArrayRef(self, node: c_ast.ArrayRef) -> None:
         """
@@ -809,7 +825,7 @@ class ParsedCode(c_ast.NodeVisitor):
         # |=> As operand:
         self.append_operand(node) # Halstead Metric
 
-## ==>  Utils Node Methods <==#############################################
+## ==>  Utils Node Methods <==#################################################
     def is_real_node(self, node: c_ast.Node) -> bool:
         """
         Determines whether a given AST node is artificially generated (fake) rather than 
@@ -897,7 +913,7 @@ class ParsedCode(c_ast.NodeVisitor):
             case _:
                 raise ValueError(f"Node of type '{self.get_node_type(node)}' is not defined yet")
 
-## ==> Debug methods <==###################################################
+## ==> Debug methods <==#######################################################
 
     def is_operand_parsed(self, operand: str) -> bool:
         """
@@ -944,11 +960,35 @@ class ParsedCode(c_ast.NodeVisitor):
             print("[]")
             return False
 
+## ==> Treatment methods <==###################################################
+
+    def treat_file_dir(self, file_dir: str) -> str:
+        """
+        Treat the dir path of the file.
+        Is commom to use './'ExampleDir/ to represent local folder, but
+        pycparser does not use in the node coords. So, to treat that, is
+        verified if the path is using ./ and remove it.
+
+        :param file_dir: The dir path to be treat (if necessary).
+
+        :return: The treated path (if the treat is necessary) or the same path
+                 (if the treat is not necessary).
+        """
+        file_dir = file_dir.strip() # Remove left and right spaces.
+
+        if file_dir[:2] == './':
+            return file_dir[2:]
+
+        return file_dir
+
+
 if __name__ == "__main__":
-    dirs = "./Examples/EstruturaDeDadosI/leibniz/"
-    code = "abrantesasf@computacaoraiz.com.br_1_leibniz"
+    dirs = "Examples/EstruturaDeDadosI/arredondar/"
+    code = "alyssongodinho3@gmail.com_1_arredondar"
 
     code = ParsedCode(code, dirs)
-    code.print_complexities()
-    code.print_functions()
+
+    if not code.has_errors:
+        code.print_complexities()
+        code.print_functions()
 

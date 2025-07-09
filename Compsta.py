@@ -19,7 +19,7 @@ class Compsta:
         self.dir_name: str = dir_name
 
         # ==> Files <======================================================== #
-        self.parsed_files: list[ParsedCode] = self.get_precompiled_files()
+        self.parsed_files: list[ParsedCode] = list()
 
         #==> Metrics <==#
         self.metrics: list[str] = [
@@ -42,8 +42,17 @@ class Compsta:
             "Effort",
             "Time Required",
             "Delivered bugs",
-            "Average line volume"
+            "Average line volume",
+            "Functions Call",
         ]
+
+        #==> Run <==#
+        self.parse_files()
+
+    #==> Methods <==###########################################################
+
+    def parse_files(self):
+        self.parsed_files = self.get_precompiled_files()
 
     def get_precompiled_files(self) -> list[ParsedCode]:
         """Scan the directory for `.i` files and parse them into `ParsedCode` objects.
@@ -102,6 +111,8 @@ class Compsta:
         table.add_column("B", justify="left", style="#1cffa0")   # Delivered Bugs
         table.add_column("CC", justify="left", style="#1cffa0")  # McCabe Complexity
         table.add_column("LC", justify="left", style="#1cffa0")  # Avg Line Volume
+        table.add_column("FC", justify="left", style="#1cffa0")  # Number of funtions calls
+        
 
         # Populate rows
         for file in self.parsed_files:
@@ -123,6 +134,7 @@ class Compsta:
                 str(round(file.delivered_bugs)),
                 str(file.total_mcc),
                 str(round(file.avg_line_volume)),
+                str(file.total_func_calls),
             )
         
         console.print(table)
@@ -159,6 +171,7 @@ class Compsta:
                 file.time_required,
                 file.delivered_bugs,
                 file.avg_line_volume,
+                file.total_func_calls,
             ]
             data.append(row)
             index += 1
@@ -166,8 +179,14 @@ class Compsta:
         with open(f"{file_name}.csv", mode="w", newline="") as file:
             csv.writer(file).writerows(data)
 
-
 if __name__ == "__main__":
-    compsta = Compsta("./Examples/EstruturaDeDadosI/inverter/")
+    file_dir: str = "./Examples/EstruturaDeDadosI/distancia/"
+    
+    compsta: Compsta = Compsta(file_dir)
+
+    csv_dir  : str = "csvs"
+    csv_name : str = "Distancia"
+    csv_final: str = f"{csv_dir}/{csv_name}"
+
     compsta.print_files_metrics()
-    compsta.export_csv("Inverter")
+
