@@ -73,8 +73,8 @@ class ParsedCode(c_ast.NodeVisitor):
         self.N1            : int   = 0  # Total number of operators (N1).
         self.N2            : int   = 0  # Total number of operands (N2).
         self.vocabulary    : int   = 0  # Program vocabulary (n).
-        self.lenght        : int   = 0  # Program lenght (N).
-        self.estimated_len : float = 0  # Estimated program lenght (^N).
+        self.length        : int   = 0  # Program lenght (N).
+        self.estimated_len : float = 0  # Estimated program length (^N).
         self.volume        : float = 0  # Volume (V).
         self.difficulty    : float = 0  # Difficulty (D).
         self.level         : float = 0  # Program level of abstraction. (L)
@@ -184,9 +184,9 @@ class ParsedCode(c_ast.NodeVisitor):
         self.n1, self.N1    = self.count_total_operators()
         self.n2, self.N2    = self.count_total_operands()
         self.vocabulary     = self.n1 + self.n2                                  # Calculate vocabulary.
-        self.lenght         = self.N1 + self.N2                                  # Calculate length.
+        self.length         = self.N1 + self.N2                                  # Calculate length.
         self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
-        self.volume         = self.lenght * log2(self.vocabulary)                # Calculate volume.
+        self.volume         = self.length * log2(self.vocabulary)                # Calculate volume.
         self.difficulty     = (self.n1 / 2) * (self.N2 / self.n2)                # Calculate difficulty.
         self.level          = 1 / self.difficulty                                # Calculate program level.
         self.intelligence   = self.level * self.volume                           # Calculate program intelligence
@@ -306,7 +306,7 @@ class ParsedCode(c_ast.NodeVisitor):
         table.add_row("Total Operators (N1)", str(self.N1))
         table.add_row("Total Operands (N2)", str(self.N2))
         table.add_row("Program vocabulary", str(self.vocabulary))
-        table.add_row("Program Length", str(self.lenght))
+        table.add_row("Program Length", str(self.length))
         table.add_row("Estimated Length", f"{self.estimated_len:.1f}")
         table.add_row("Volume", f"{self.volume:.1f}")
         table.add_row("Difficulty", f"{self.difficulty:.1f}")
@@ -454,7 +454,7 @@ class ParsedCode(c_ast.NodeVisitor):
         table.add_column("N1", justify="right", style="#1cffa0")
         table.add_column("N2", justify="right", style="#1cffa0")
         table.add_column("Vocabulary", justify="right", style="#1cffa0")
-        table.add_column("lenght", justify="right", style="#1cffa0")
+        table.add_column("length", justify="right", style="#1cffa0")
         table.add_column("Estimated Len", justify="right", style="#1cffa0")
         table.add_column("Volume", justify="right", style="#1cffa0")
         table.add_column("Difficulty", justify="right", style="#1cffa0")
@@ -475,7 +475,7 @@ class ParsedCode(c_ast.NodeVisitor):
                 f"{function.N1}",
                 f"{function.N2}",
                 f"{function.vocabulary}",
-                f"{function.lenght}",
+                f"{function.length}",
                 f"{function.estimated_len:.1f}",
                 f"{function.volume:.1f}",
                 f"{function.difficulty:.1f}",
