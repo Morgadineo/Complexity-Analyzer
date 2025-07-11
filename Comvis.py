@@ -56,7 +56,7 @@ class ParsedCode(c_ast.NodeVisitor):
 
         #==> Functions Complexity <==#
         self.functions          : set[Function] = set()
-        self.number_of_functions: int           = len(self.functions)
+        self.number_of_functions: int           = 0
         self.distict_func_calls : set[str]      = set()
         self.total_func_calls   : int           = 0
 
@@ -119,6 +119,7 @@ class ParsedCode(c_ast.NodeVisitor):
             self.ast: c_ast.FileAST = parse_file(self.file_clean, use_cpp=False)
             self.visit(self.ast)
             self.calculate_metrics()
+            self.number_of_functions = len(self.functions)
 
         except plyparser.ParseError:
             Console().print(f"PARSE ERROR IN '{self.file_path}' - IGNORING",
