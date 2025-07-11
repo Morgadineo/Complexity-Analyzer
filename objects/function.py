@@ -45,8 +45,8 @@ class Function:
         self.N1            : int   = 0  # Total number of operators (N1).
         self.N2            : int   = 0  # Total number of operands (N2).
         self.vocabulary    : int   = 0  # Program vocabulary (n).
-        self.lenght        : int   = 0  # Program lenght (N).
-        self.estimated_len : float = 0  # Estimated program lenght (^N).
+        self.length        : int   = 0  # Program lenght (N).
+        self.estimated_len : float = 0  # Estimated program length (^N).
         self.volume        : float = 0  # Volume (V).
         self.difficulty    : float = 0  # Difficulty (D).
         self.level         : float = 0  # Program level of abstraction. (L)
@@ -110,9 +110,9 @@ class Function:
 
     def calculate_halstead(self) -> None:
         self.vocabulary     = self.n1 + self.n2                                  # Calculate vocabulary.
-        self.lenght         = self.N1 + self.N2                                  # Calculate length.
+        self.length         = self.N1 + self.N2                                  # Calculate length.
         self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
-        self.volume         = self.lenght * log2(self.vocabulary)                # Calculate volume.
+        self.volume         = self.length * log2(self.vocabulary)                # Calculate volume.
         self.difficulty     = (self.n1 / 2) * (self.N2 / self.n2)                # Calculate difficulty.
         self.level          = 1 / self.difficulty                                # Calculate program level.
         self.intelligence   = self.level * self.volume                           # Calculate program intelligence

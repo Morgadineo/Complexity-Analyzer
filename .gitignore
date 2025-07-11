@@ -11,6 +11,7 @@ __pycache__/
 
 # Diretório dos códigos que não serão utilizados no momento.
 Placeholders/
+csvs/
 
 # Anotações do projeto
 *.wiki
