@@ -1,5 +1,5 @@
 import pycparser
-from pycparser import plyparser
+from pycparser        import plyparser
 from objects.function import Function
 from ast              import parse
 from os               import sep
@@ -121,8 +121,8 @@ class ParsedCode(c_ast.NodeVisitor):
             self.calculate_metrics()
             self.number_of_functions = len(self.functions)
 
-        except plyparser.ParseError:
-            Console().print(f"PARSE ERROR IN '{self.file_path}' - IGNORING",
+        except plyparser.ParseError as e:
+            Console().print(f"PARSE ERROR IN '{self.file_path}': {e} - FILE IGNORED",
                             style="bold red")
             self.has_errors = True
             raise
@@ -337,13 +337,17 @@ class ParsedCode(c_ast.NodeVisitor):
 
         This method return a ordenered pair with [0] the number of distinct operators e [1] the total number of operators.
         """
+
+        distinct_operators: int = len(self.operators.keys())
         total_operators   : int = 0
-        distinct_operators: int = 0
+
+        for line_list in self.operators.values():
+            total_operators += len(line_list)
 
         for function in self.functions:
-            for operator in function.operators.keys():
-                distinct_operators += 1
-                total_operators    += len(function.operators[operator])
+            distinct_operators += len(function.operators.keys())
+            for line_list in function.operators.values():
+                total_operators += len(line_list)
 
         return (distinct_operators, total_operators)
 
@@ -353,13 +357,16 @@ class ParsedCode(c_ast.NodeVisitor):
 
         This method return a ordenered pair with [0] the number of distinct operators e [1] the total number of operands.
         """
+        distinct_operands: int = len(self.operands.keys())
         total_operands   : int = 0
-        distinct_operands: int = 0
+
+        for line_list in self.operands.values():
+            total_operands += len(line_list)
         
         for function in self.functions:
-            for operand in function.operands.keys():
-                distinct_operands += 1
-                total_operands    += len(function.operands[operand])
+            distinct_operands += len(function.operands.keys())
+            for line_list in function.operands.values():
+                total_operands += len(line_list)
 
         return (distinct_operands, total_operands)
 
@@ -386,6 +393,15 @@ class ParsedCode(c_ast.NodeVisitor):
 
         match(node_type):
 
+            case "Cast":
+                # Cast for a simple type
+                if isinstance(node.to_type.type.type, c_ast.IdentifierType):
+                    operator = node.to_type.type.type.names[0]
+
+                # Cast for a pointer
+                elif isinstance(node.to_type.type, c_ast.PtrDecl):
+                    operator = node.to_type.type.type.type.names[0] + '*'
+
             case "Typedef":
                 operator = "typedef"
 
@@ -410,8 +426,14 @@ class ParsedCode(c_ast.NodeVisitor):
             case "ArrayDecl":
                 operator = "[]"
 
+            case "PtrDecl":
+                operator = "*"
+
             case "Return":
                 operator = "return"
+
+            case "Sizeof":
+                operator = "sizeof"
 
             case _:
                 operator: str = self.get_node_value(node)
@@ -434,6 +456,10 @@ class ParsedCode(c_ast.NodeVisitor):
         return (operand, line)
 
     def print_functions(self) -> None:
+
+        if self.number_of_functions == 0:
+            return
+
         console = Console()
 
         title: str = "[bold]Functions Complexity Analysis[/]"
@@ -448,8 +474,6 @@ class ParsedCode(c_ast.NodeVisitor):
         
         # Add columns
         table.add_column("Function", style="cyan")
-        table.add_column("Lines", justify="right", style="#1cffa0")
-        table.add_column("Eff.Lines", justify="right", style="#1cffa0")
         table.add_column("n1", justify="right", style="#1cffa0")
         table.add_column("n2", justify="right", style="#1cffa0")
         table.add_column("N1", justify="right", style="#1cffa0")
@@ -469,8 +493,6 @@ class ParsedCode(c_ast.NodeVisitor):
 
         for function in self.functions:
             table.add_row(
-                function.func_name, str(function.total_lines),
-                str(function.effective_lines),
                 f"{function.n1}",
                 f"{function.n2}",
                 f"{function.N1}",
@@ -669,10 +691,12 @@ class ParsedCode(c_ast.NodeVisitor):
         
         :param node: A c_ast array declaration node.
         """
+
         self.append_operator(node) # Halstead Metric
-        self.append_operand(node)  # Halstead Metric
 
         #>>> Visit <<<#
+        self.visit(node.type)
+
         if node.dim is not None:
             self.visit(node.dim)
 
@@ -711,6 +735,22 @@ class ParsedCode(c_ast.NodeVisitor):
         #>>> Visit <<<#
         self.visit(node.body)
 
+    def visit_PtrDecl(self, node: c_ast.PtrDecl) -> None:
+
+        #==> Append * operator <==#
+        self.append_operator(node)
+
+        #>>> Visit <<<#
+        self.visit(node.type)
+
+    def visit_Cast(self, node: c_ast.Cast) -> None:
+
+        self.append_operator(node)
+
+        #>>> Visit <<<#
+        self.visit(node.to_type)
+        self.visit(node.expr)
+
     def visit_Decl(self, node: c_ast.Decl) -> None:
         """
         This function is called when a Declaration node is visited.
@@ -732,10 +772,9 @@ class ParsedCode(c_ast.NodeVisitor):
 
             #>>> Visit <<<#
             self.visit(node.type)
-            
+
             if not node.init is None: 
                 self.append_operator(node)
-                self.append_operand(node.type)
 
                 #>>> Visit <<<#
                 self.visit(node.init)
@@ -743,16 +782,21 @@ class ParsedCode(c_ast.NodeVisitor):
         self.current_node_type = ""
 
     def visit_TypeDecl(self, node: c_ast.TypeDecl) -> None:
+
+        if node.declname == None:
+            return
+
+        self.append_operand(node)
+
         #>>> Visit <<<#
+        ###############################################
+        # This will visit the type node of a variable #
+        ###############################################
         self.visit(node.type)
 
     def visit_IdentifierType(self, node: c_ast.IdentifierType) -> None:
-        """
-        This functions is called when a type identifier node is visited.
 
-        :param node: A c_ast TypeDecl node.
-        """
-        pass
+        self.append_operand(node)
 
     def visit_UnaryOp(self, node: c_ast.UnaryOp) -> None:
         """
@@ -760,6 +804,7 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :param node: A c_ast node type.
         """
+
         self.append_operator(node) # Halstead Metric
 
         #>>> Visit <<<#
@@ -857,12 +902,12 @@ class ParsedCode(c_ast.NodeVisitor):
 
         :return: The line of ocurrecy.
         """
+
         brute_coord : str       = str(node.coord)
         sliced_coord: list[str] = brute_coord.split(":") 
 
         #-> Infos <-#
         line_coord   : int = int(sliced_coord[1])
-        # collumn_coord: int = int(sliced_coord[2])
 
         return line_coord
 
@@ -887,6 +932,9 @@ class ParsedCode(c_ast.NodeVisitor):
         """
         match(self.get_node_type(node)):
 
+            case "IdentifierType":
+                return node.names[0]
+
             case "Typedef":
                 return node.name
 
@@ -905,12 +953,15 @@ class ParsedCode(c_ast.NodeVisitor):
             case "TypeDecl":
                 return node.declname
 
+            case "PtrDecl":
+                return node.declname
+
+            case "ArrayDecl":
+                return node.type.declname
+
             case "FuncDef":
                 return node.decl.name
             
-            case "PtrDecl" | "ArrayDecl":
-                return node.type.declname
-
             case _:
                 raise ValueError(f"Node of type '{self.get_node_type(node)}' is not defined yet")
 
@@ -984,8 +1035,8 @@ class ParsedCode(c_ast.NodeVisitor):
 
 
 if __name__ == "__main__":
-    dirs = "Examples/EstruturaDeDadosI/arredondar/"
-    code = "alyssongodinho3@gmail.com_1_arredondar"
+    dirs = "./Examples/EstruturaDeDadosI/Lista02/Biblioteca13/"
+    code = "mthais726@gmail.com_1_livros"
 
     code = ParsedCode(code, dirs)
 

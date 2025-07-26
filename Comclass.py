@@ -54,7 +54,7 @@ class Comclass:
 if __name__ == "__main__":
     comclass = Comclass()
 
-    folder = "./Examples/EstruturaDeDadosI/"
+    folder = "./Examples/EstruturaDeDadosI/Lista02/"
 
     comclass.parse_folder(folder)
 

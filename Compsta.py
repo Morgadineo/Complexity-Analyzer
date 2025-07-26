@@ -35,7 +35,7 @@ class Compsta:
             "Total number of operators (N1)",
             "Total number of operands (N2)",
             "Vocabulary",
-            "length",
+            "Length",
             "Estimated length",
             "Volume",
             "Difficulty",
@@ -159,7 +159,6 @@ class Compsta:
         for filename in listdir(self.dir_name):
             if filename.endswith(".i"):
                 filename = filename[:-2]  # Remove `.i` extension
-                
                 try:
                     parsed_code = ParsedCode(filename, self.dir_name)
 
@@ -167,10 +166,8 @@ class Compsta:
                         parsed_files.append(parsed_code)
                 
                 except Exception as e:
-                    Console().print(f"ERROR PROCESSING '{filename}': {str(e)} - IGNORING",
-                                  style="bold yellow")
-                    continue
-
+                    Console().print(f"ERROR PROCESSING '{filename}': {str(e)}",
+                                    style="bold yellow")
         return parsed_files
 
     def print_files_metrics(self) -> None:
@@ -372,15 +369,19 @@ class Compsta:
         with open(f"{file_name}.csv", mode="w", newline="") as file:
             csv.writer(file).writerows(data)
 
+        Console().print(f"Create CSV: {file_name}", style="bold green")
+
 if __name__ == "__main__":
-    file_dir: str = "./Examples/EstruturaDeDadosI/distancia/"
+    # With /
+    file_dir: str = "./Examples/EstruturaDeDadosI/Lista02/Semana01/"
     
     compsta: Compsta = Compsta(file_dir)
 
-    csv_dir  : str = "csvs"
-    csv_name : str = "Distancia"
-    csv_final: str = f"{csv_dir}/{csv_name}"
+    csv_dir  : str = "./csvs/Lista02/"
+    csv_name : str = "Semana01"
+    csv_final: str = f"{csv_dir}{csv_name}"
 
     compsta.print_files_metrics()
     compsta.print_mean_metrics()
+    compsta.export_csv(csv_final)
 
