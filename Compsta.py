@@ -2,7 +2,9 @@ from ast import parse
 from sys import exception
 from typing import final, Any
 from Comvis import ParsedCode
-from os import listdir
+from pathlib import Path
+import os
+from os import listdir, makedirs
 from rich.console import Console
 from rich.columns import Columns
 from rich.table import Table
@@ -83,7 +85,7 @@ class Compsta:
         total_functions_calls = 0
 
 
-        for parsed_file in self.get_precompiled_files():
+        for parsed_file in self.parsed_files:
             total_effective_lines += parsed_file.effective_lines
             total_number_of_functions += parsed_file.number_of_functions
             total_mcc += parsed_file.total_mcc
@@ -329,7 +331,7 @@ class Compsta:
 
         console.print(mean_table)
 
-    def export_csv(self, file_name: str) -> None:
+    def export_csv(self, dir: str, filename: str) -> None:
         """Export metrics to a CSV file.
 
         :param file_name: Output filename (without `.csv` extension).
@@ -337,8 +339,9 @@ class Compsta:
         :return: None
         """
         data = [self.metrics]  # Header row
-
+        file_name: str = f"{dir}{filename}"
         index = 0
+
         for file in self.parsed_files:
             row = [
                 index,
@@ -366,22 +369,88 @@ class Compsta:
             data.append(row)
             index += 1
 
+        makedirs(dir, exist_ok=True)
+
         with open(f"{file_name}.csv", mode="w", newline="") as file:
             csv.writer(file).writerows(data)
 
         Console().print(f"Create CSV: {file_name}", style="bold green")
 
+    def export_mean_csv(self, dir: str, filename: str) -> None:
+        """Export mean metrics to a CSV file with metrics as columns and values in one row.
+        
+        :param dir: Output directory path (should end with '/')
+        :type dir: str
+        :param filename: Output filename (without `.csv` extension)
+        :type filename: str
+        :return: None
+        """
+        file_name: str = f"{dir}{filename}_mean"
+        
+        # Prepare headers (cleaning 'Mean ' prefix)
+        headers = [metric.replace("Mean ", "") for metric in self.mean_metrics.keys()]
+        
+        # Prepare values row (formatted to 2 decimal places)
+        values = [f"{value:.2f}" for value in self.mean_metrics.values()]
+        
+        # Create directory if it doesn't exist
+        makedirs(dir, exist_ok=True)
+        
+        # Write to CSV
+        with open(f"{file_name}.csv", mode="w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(headers)  # Write metrics as column headers
+            writer.writerow(values)   # Write values in a single row
+        
+        Console().print(f"Created mean CSV: {file_name}", style="bold green")
+
+
+    @staticmethod
+    def process_directory(base_input_dir: str, base_output_dir: str) -> None:
+        """Process all exercise directories recursively and generate CSV files.
+        
+        :param base_input_dir: Base directory containing the exercise folders (e.g., "./Examples/EstruturaDeDadosI/Lista02/")
+        :param base_output_dir: Base output directory for CSV files (e.g., "./csvs/EstruturaDeDadosI/Lista02/")
+        """
+        console = Console()
+        
+        # Ensure the base output directory exists
+        Path(base_output_dir).mkdir(parents=True, exist_ok=True)
+        
+        # Walk through all subdirectories
+        for root, dirs, files in os.walk(base_input_dir):
+            # Skip directories that don't contain .i files
+            if not any(f.endswith('.i') for f in files):
+                continue
+                
+            # Process each directory with .i files
+            relative_path = os.path.relpath(root, base_input_dir)
+            output_dir = os.path.join(base_output_dir, relative_path)
+            
+            # Create Compsta instance for this directory
+            try:
+                console.print(f"\nProcessing: [bold cyan]{root}[/]", style="bold")
+                compsta = Compsta(root + "/")  # Ensure trailing slash
+                
+                # Generate CSV name from directory name
+                csv_name = os.path.basename(root)
+                
+                # Print metrics and export CSVs
+                compsta.print_files_metrics()
+                compsta.print_mean_metrics()
+                compsta.export_csv(output_dir + "/", csv_name)
+                compsta.export_mean_csv(output_dir + "/", csv_name)
+                
+                console.print(f"Successfully processed [green]{root}[/]", style="bold")
+            except Exception as e:
+                console.print(f"Error processing {root}: {str(e)}", style="bold red")
+
 if __name__ == "__main__":
     # With /
-    file_dir: str = "./Examples/EstruturaDeDadosI/Lista02/Semana01/"
+    file_dir: str = "./Examples/"
     
-    compsta: Compsta = Compsta(file_dir)
-
-    csv_dir  : str = "./csvs/Lista02/"
-    csv_name : str = "Semana01"
-    csv_final: str = f"{csv_dir}{csv_name}"
-
-    compsta.print_files_metrics()
-    compsta.print_mean_metrics()
-    compsta.export_csv(csv_final)
+    input_base = "./Examples/"
+    output_base = "./csvs/"
+    
+    Compsta.process_directory(input_base, output_base)
 

@@ -7,10 +7,10 @@ import csv
 
 class Comclass:
     def __init__(self):
-        self.all_mean_metrics = []  # Armazenará as médias de todas as pastas
-        self.dir_names = []         # Nomes das pastas analisadas
+        self.all_mean_metrics = []
+        self.dir_names = []
 
-    def parse_folder(self, dir_name: str):
+    def parse_folder(self, dir_name: str, csv_name: str):
         """Analisa todas as subpastas e coleta métricas"""
         for file in os.listdir(dir_name):
             file_path = os.path.join(dir_name, file)
@@ -24,37 +24,34 @@ class Comclass:
                 
                 Console().print(f"Processed {file.capitalize()}", style="bold green")
 
-        # Exporta tudo para um único CSV após processar todas as pastas
-        self.export_consolidated_metrics(dir_name)
+        self.export_consolidated_metrics(dir_name, csv_name)
 
-    def export_consolidated_metrics(self, base_dir: str):
+    def export_consolidated_metrics(self, base_dir: str, csv_name: str):
         """Exporta todas as médias para um único CSV"""
         if not self.all_mean_metrics:
             return
 
-        # Cria cabeçalho baseado nas keys do primeiro item
-        header = ["Folder"] + list(self.all_mean_metrics[0].keys())
+        header = ["Index" ,"Folder"] + list(self.all_mean_metrics[0].keys())
 
-        # Prepara os dados
         data = [header]
         for name, metrics in zip(self.dir_names, self.all_mean_metrics):
-            row = [name] + list(metrics.values())
+            row = [ name[:2], name] + list(metrics.values())
             data.append(row)
 
-        # Define o nome do arquivo baseado na pasta principal
-        csv_name = os.path.join("./csvs/", "consolidated_mean_metrics.csv")
+        os.makedirs(csv_name, exist_ok=True)
 
-        # Escreve o arquivo
         with open(csv_name, mode="w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
             writer.writerows(data)
 
-        Console().print(f"\nCREATE consolidated_mean_metrics.csv", style="bold green")
+        Console().print(f"\nCREATE {csv_name}.csv", style="bold green")
 
 if __name__ == "__main__":
     comclass = Comclass()
 
-    folder = "./Examples/EstruturaDeDadosI/Lista02/"
+    folder = "./Examples/EstruturaDeDadosI/Lista01/"
+    csv_name = "./csvs/EstruturaDeDadosI/Lista01/"
 
-    comclass.parse_folder(folder)
+
+    comclass.parse_folder(folder, csv_name)
 

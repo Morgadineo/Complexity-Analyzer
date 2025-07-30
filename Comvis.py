@@ -125,7 +125,6 @@ class ParsedCode(c_ast.NodeVisitor):
             Console().print(f"PARSE ERROR IN '{self.file_path}': {e} - FILE IGNORED",
                             style="bold red")
             self.has_errors = True
-            raise
 
     ## ==> Metric methods <== #############################################
 
@@ -493,6 +492,7 @@ class ParsedCode(c_ast.NodeVisitor):
 
         for function in self.functions:
             table.add_row(
+                f"{function.func_name}",
                 f"{function.n1}",
                 f"{function.n2}",
                 f"{function.N1}",
@@ -632,9 +632,15 @@ class ParsedCode(c_ast.NodeVisitor):
         self.append_operator(node) # Halstead Metric
 
         #>>> Visit <<<#
-        self.visit(node.init)
-        self.visit(node.cond)
-        self.visit(node.next)
+        if not node.init is None:
+            self.visit(node.init)
+
+        if not node.cond is None:
+            self.visit(node.cond)
+
+        if not node.next is None:
+            self.visit(node.next)
+
         self.visit(node.stmt)
 
     def visit_If(self, node: c_ast.If) -> None:
@@ -1035,8 +1041,8 @@ class ParsedCode(c_ast.NodeVisitor):
 
 
 if __name__ == "__main__":
-    dirs = "./Examples/EstruturaDeDadosI/Lista02/Biblioteca13/"
-    code = "mthais726@gmail.com_1_livros"
+    dirs = "./Examples/EstruturaDeDadosII/Lista01/07Decomposicao/"
+    code = "mateus.f.2804@gmail.com_1_primos"
 
     code = ParsedCode(code, dirs)
 
