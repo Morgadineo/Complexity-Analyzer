@@ -17,6 +17,30 @@ class Compsta:
 
     :param dir_name: Directory containing preprocessed `.i` files.
     """
+
+    ATTRIBUTES: list[str] = [
+        "effective_lines",
+        "number_of_functions",
+        "total_mcc",
+        "n1",
+        "n2", 
+        "N1",
+        "N2",
+        "vocabulary",
+        "length",
+        "estimated_len",
+        "volume", 
+        "difficulty",
+        "level",
+        "intelligence",
+        "effort",
+        "time_required", 
+        "delivered_bugs",
+        "avg_line_volume",
+        "total_func_calls", 
+        "total_cognitive_complexity"
+        ]
+
     def __init__(self, dir_name: str):
         """Initialize Compsta with a directory path and load preprocessed files."""
         self.dir_name: str = dir_name
@@ -63,6 +87,36 @@ class Compsta:
         self.number_of_files = len(self.parsed_files)
 
     def parse_mean(self):
+        """
+        Computes the average values of software metrics across all parsed files.
+
+        This method calculates the mean of a predefined list of static code metrics 
+        (e.g., Halstead metrics, cyclomatic complexity, effective lines of code) 
+        extracted from each ParsedCode object stored in `self.parsed_files`. 
+        The results are stored in the `self.mean_metrics` dictionary using 
+        `snake_case` keys prefixed with 'mean_'.
+
+        If `self.number_of_files` is zero, the method exits without performing any calculation.
+
+        Metrics computed include:
+            - effective_lines
+            - number_of_functions
+            - total_mcc (cyclomatic complexity)
+            - Halstead metrics (n1, n2, N1, N2, vocabulary, length, estimated_len, etc.)
+            - avg_line_volume
+            - total_func_calls
+            - total_cognitive_complexity
+
+        Side Effects:
+            - Modifies `self.mean_metrics` in-place.
+
+        Raises:
+            None
+        """
+
+        #######################################################################
+        # OLD, BUT FASTER, IMPLEMENTATION
+        """
         total_effective_lines = 0
         total_number_of_functions = 0
         total_mcc = 0
@@ -151,6 +205,28 @@ class Compsta:
             "Mean Cognitive Complexity": total_cognitive_complexity
         }
 
+        """
+        #######################################################################
+
+
+        #######################################################################
+        # This implementation is slower than the previous version because for 
+        # each attribute, it needs to loop through the entire list of objects.
+        # For readability and scalability reasons, I'll keep this version.
+        #######################################################################
+        if self.number_of_files > 0:
+            for attr in self.ATTRIBUTES:
+                ###############################################################
+                # variable: total
+                #
+                # For the current attr, it loops through all the 
+                # files in the list and adds the corresponding attribute to the
+                # variable.                
+                ###############################################################
+                total: float = sum(getattr(parsed_file, attr) for parsed_file in self.parsed_files)
+
+                self.mean_metrics[f"mean_{attr}"] = total / self.number_of_files
+
     def get_precompiled_files(self) -> list[ParsedCode]:
         """Scan the directory for `.i` files and parse them into `ParsedCode` objects.
 
@@ -234,11 +310,10 @@ class Compsta:
         console.print(table)
 
     def print_mean_metrics(self) -> None:
-        console = Console()
-        title = f"[bold][#00ffae]Average Metrics for {self.dir_name}[/]"
-        border_style = Style(color="#000000", bold=True)
+        console     : Console = Console()
+        title       : str     = f"[bold][#00ffae]Average Metrics for {self.dir_name}[/]"
+        border_style: Style   = Style(color="#000000", bold=True)
 
-        # Create table for mean metrics
         mean_table = Table(
             title=title,
             box=box.ROUNDED,
@@ -250,84 +325,10 @@ class Compsta:
         # Add columns (matching your original style)
         mean_table.add_column("Metric", style="cyan", justify="left")
         mean_table.add_column("Value", justify="left", style="#1cffa0")
-        mean_table.add_column("Description", justify="left", style="#1cffa0")
 
-        # Add mean metrics rows with descriptions
-        mean_table.add_row(
-            "Effective Lines (EL)",
-            f"{self.mean_metrics['Mean Effective Lines']:.2f}",
-            "Average executable lines of code"
-        )
-        mean_table.add_row(
-            "Functions",
-            f"{self.mean_metrics['Mean Number of Functions']:.2f}",
-            "Average number of functions"
-        )
-        mean_table.add_row(
-            "McCabe (CC)",
-            f"{self.mean_metrics['Mean Total McCabe']:.2f}",
-            "Average cyclomatic complexity"
-        )
-        mean_table.add_row(
-            "Distinct Operators (n1)",
-            f"{self.mean_metrics['Mean Number of distinct operators (n1)']:.2f}",
-            "Average unique operators"
-        )
-        mean_table.add_row(
-            "Distinct Operands (n2)",
-            f"{self.mean_metrics['Mean Number of distinct operands (n2)']:.2f}",
-            "Average unique operands"
-        )
-        mean_table.add_row(
-            "Total Operators (N1)",
-            f"{self.mean_metrics['Mean Total number of operators (N1)']:.2f}",
-            "Average total operators"
-        )
-        mean_table.add_row(
-            "Total Operands (N2)",
-            f"{self.mean_metrics['Mean Total number of operands (N2)']:.2f}",
-            "Average total operands"
-        )
-        mean_table.add_row(
-            "Vocabulary (n)",
-            f"{self.mean_metrics['Mean Vocabulary']:.2f}",
-            "Average n1 + n2"
-        )
-        mean_table.add_row(
-            "Length (N)",
-            f"{self.mean_metrics['Mean Length']:.2f}",
-            "Average N1 + N2"
-        )
-        mean_table.add_row(
-            "Difficulty (D)",
-            f"{self.mean_metrics['Mean Difficulty']:.2f}",
-            "Average program difficulty"
-        )
-        mean_table.add_row(
-            "Level (L)",
-            f"{self.mean_metrics['Mean Level']:.2f}",
-            "Average program level"
-        )
-        mean_table.add_row(
-            "Effort (E)",
-        f"{self.mean_metrics['Mean Effort']:.2f}",
-        "Average programming effort"
-        )
-        mean_table.add_row(
-            "Time (T)",
-            f"{self.mean_metrics['Mean Time Required']:.2f}",
-            "Average time required"
-        )
-        mean_table.add_row(
-            "Line Volume (LC)",
-            f"{self.mean_metrics['Mean Average line volume']:.2f}",
-            "Average volume per line"
-        )
-        mean_table.add_row(
-            "Cognitive Complexity",
-            f"{self.mean_metrics.get('Mean Cognitive Complexity', 0):.2f}",
-            "Average cognitive complexity"
-        )
+        for key, metric_value in self.mean_metrics.items():
+            metric_name: str = key.replace("_", " ").title()
+            mean_table.add_row(metric_name, f"{metric_value:.1f}")
 
         console.print(mean_table)
 
@@ -387,8 +388,8 @@ class Compsta:
         """
         file_name: str = f"{dir}{filename}_mean"
         
-        # Prepare headers (cleaning 'Mean ' prefix)
-        headers = [metric.replace("Mean ", "") for metric in self.mean_metrics.keys()]
+        # Prepare headers (cleaning 'mean_' prefix)
+        headers = [metric.replace("mean_", "") for metric in self.mean_metrics.keys()]
         
         # Prepare values row (formatted to 2 decimal places)
         values = [f"{value:.2f}" for value in self.mean_metrics.values()]
@@ -403,7 +404,6 @@ class Compsta:
             writer.writerow(values)   # Write values in a single row
         
         Console().print(f"Created mean CSV: {file_name}", style="bold green")
-
 
     @staticmethod
     def process_directory(base_input_dir: str, base_output_dir: str) -> None:
