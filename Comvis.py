@@ -488,7 +488,9 @@ class ParsedCode(c_ast.NodeVisitor):
         table.add_column("Time", justify="right", style="#1cffa0")
         table.add_column("Bugs", justify="right", style="#1cffa0")
         table.add_column("McCabe", justify="right", style="#1cffa0")
-        table.add_column("Cognitive", justify="right", style="#1cffa0")
+
+        # table.add_column("Cognitive", justify="right", style="#1cffa0") ==>
+        # Not Implemented yeet
 
         for function in self.functions:
             table.add_row(
@@ -508,7 +510,7 @@ class ParsedCode(c_ast.NodeVisitor):
                 f"{function.time_required:.1f}",
                 f"{function.delivered_bugs:.1f}",
                 str(function.total_mcc),
-                str(function.cognitive_complexity),
+                # str(function.cognitive_complexity),
             )
         
         console.print(table)

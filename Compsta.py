@@ -38,7 +38,6 @@ class Compsta:
         "delivered_bugs",
         "avg_line_volume",
         "total_func_calls", 
-        "total_cognitive_complexity"
         ]
 
     def __init__(self, dir_name: str):
