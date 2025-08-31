@@ -40,20 +40,20 @@ class Function:
         self.effective_lines: int = 0
 
         #==> Halstead Metric <==#
-        self.n1            : int   = 0  # Number of distinct operators (n1).
-        self.n2            : int   = 0  # Number of distinct operands (n2).
-        self.N1            : int   = 0  # Total number of operators (N1).
-        self.N2            : int   = 0  # Total number of operands (N2).
-        self.vocabulary    : int   = 0  # Program vocabulary (n).
-        self.length        : int   = 0  # Program lenght (N).
-        self.estimated_len : float = 0  # Estimated program length (^N).
-        self.volume        : float = 0  # Volume (V).
-        self.difficulty    : float = 0  # Difficulty (D).
-        self.level         : float = 0  # Program level of abstraction. (L)
-        self.intelligence  : float = 0  # Intelligence Content. "Independet of language" (I)
-        self.effort        : float = 0  # Effort (E).
-        self.time_required : float = 0  # Time required to program (T).
-        self.delivered_bugs: float = 0  # Estimated number of bugs (B).
+        self.n1             : int   = 0  # Number of distinct operators (n1).
+        self.n2             : int   = 0  # Number of distinct operands (n2).
+        self.N1             : int   = 0  # Total number of operators (N1).
+        self.N2             : int   = 0  # Total number of operands (N2).
+        self.vocabulary     : int   = 0  # Program vocabulary (n).
+        self.length         : int   = 0  # Program lenght (N).
+        self.estimated_len  : float = 0  # Estimated program length (^N).
+        self.volume         : float = 0  # Volume (V).
+        self.difficulty     : float = 0  # Difficulty (D).
+        self.estimated_level: float = 0 # Estimated program level (L')
+        self.intelligence   : float = 0  # Intelligence Content. "Independet of language" (I)
+        self.effort         : float = 0  # Effort (E).
+        self.time_required  : float = 0  # Time required to program (T).
+        self.delivered_bugs : float = 0  # Estimated number of bugs (B).
 
         #==> Cognitive Complexity <==#
         self.cognitive_complexity: int = 0
@@ -114,8 +114,8 @@ class Function:
         self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
         self.volume         = self.length * log2(self.vocabulary)                # Calculate volume.
         self.difficulty     = (self.n1 / 2) * (self.N2 / self.n2)                # Calculate difficulty.
-        self.level          = 1 / self.difficulty                                # Calculate program level.
-        self.intelligence   = self.level * self.volume                           # Calculate program intelligence
+        self.estimated_level = 1 / self.difficulty
+        self.intelligence   = self.estimated_level * self.volume                           # Calculate program intelligence
         self.effort         = self.difficulty * self.volume                      # Calculate effort.
         self.time_required  = self.effort / 18                                   # Calculate time to program (seconds).
         self.delivered_bugs = self.effort ** (2 / 3) / 3000                      # Calculate number of delivered bugs.
