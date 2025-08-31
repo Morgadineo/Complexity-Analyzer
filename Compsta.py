@@ -13,11 +13,21 @@ from rich.style import Style
 import csv
 
 class Compsta:
-    """A class for analyzing and exporting code metrics from preprocessed files.
-
-    :param dir_name: Directory containing preprocessed `.i` files.
+    """A comprehensive class for batch analysis and export of code metrics from multiple files.
+    
+    This class processes directories containing preprocessed C files (.i extension) and
+    calculates aggregate software metrics across all files. It provides functionality
+    for displaying metrics in formatted tables and exporting to CSV files.
+    
+    Attributes:
+        dir_name: Directory containing preprocessed `.i` files.
+        ATTRIBUTES: List of metric attribute names to calculate means for.
+        parsed_files: List of ParsedCode objects for each processed file.
+        number_of_files: Count of successfully parsed files.
+        metrics: Human-readable names for CSV export columns.
+        mean_metrics: Dictionary containing mean values of all metrics.
     """
-
+    
     ATTRIBUTES: list[str] = [
         "effective_lines",
         "number_of_functions",
@@ -41,7 +51,11 @@ class Compsta:
         ]
 
     def __init__(self, dir_name: str):
-        """Initialize Compsta with a directory path and load preprocessed files."""
+        """Initialize Compsta with a directory path and load preprocessed files.
+        
+        Args:
+            dir_name: Directory path containing preprocessed `.i` files.
+        """
         self.dir_name: str = dir_name
 
         # ==> Files <======================================================== #
@@ -80,13 +94,17 @@ class Compsta:
 
     #==> Methods <==###########################################################
 
-    def parse_files(self):
+    def parse_files(self) -> None:
+        """Parse all precompiled files in the directory.
+        
+        This method populates the parsed_files list with ParsedCode objects
+        for each valid `.i` file found in the directory.
+        """
         self.parsed_files = self.get_precompiled_files()
         self.number_of_files = len(self.parsed_files)
 
-    def parse_mean(self):
-        """
-        Computes the average values of software metrics across all parsed files.
+    def parse_mean(self) -> None:
+        """Computes the average values of software metrics across all parsed files.
 
         This method calculates the mean of a predefined list of static code metrics 
         (e.g., Halstead metrics, cyclomatic complexity, effective lines of code) 
@@ -103,110 +121,10 @@ class Compsta:
             - Halstead metrics (n1, n2, N1, N2, vocabulary, length, estimated_len, etc.)
             - avg_line_volume
             - total_func_calls
-            - total_cognitive_complexity
 
         Side Effects:
             - Modifies `self.mean_metrics` in-place.
-
-        Raises:
-            None
         """
-
-        #######################################################################
-        # OLD, BUT FASTER, IMPLEMENTATION
-        """
-        total_effective_lines = 0
-        total_number_of_functions = 0
-        total_mcc = 0
-        total_n1 = 0
-        total_n2 = 0
-        total_N1 = 0
-        total_N2 = 0
-        total_vocabulary = 0
-        total_length = 0
-        total_estimated_len = 0
-        total_volume = 0
-        total_difficulty = 0
-        total_level = 0
-        total_intelligence = 0
-        total_effort = 0
-        total_time_required = 0
-        total_delivered_bugs = 0
-        total_avg_line_volume = 0
-        total_cognitive_complexity = 0
-        total_functions_calls = 0
-
-
-        for parsed_file in self.parsed_files:
-            total_effective_lines += parsed_file.effective_lines
-            total_number_of_functions += parsed_file.number_of_functions
-            total_mcc += parsed_file.total_mcc
-            total_n1 += parsed_file.n1
-            total_n2 += parsed_file.n2
-            total_N1 += parsed_file.N1
-            total_N2 += parsed_file.N2
-            total_vocabulary += parsed_file.vocabulary
-            total_length += parsed_file.length
-            total_estimated_len += parsed_file.estimated_len
-            total_volume += parsed_file.volume
-            total_difficulty += parsed_file.difficulty
-            total_level += parsed_file.level
-            total_intelligence += parsed_file.intelligence
-            total_effort += parsed_file.effort
-            total_time_required += parsed_file.time_required
-            total_delivered_bugs += parsed_file.delivered_bugs
-            total_avg_line_volume += parsed_file.avg_line_volume
-            total_cognitive_complexity += parsed_file.total_cognitive_complexity
-            total_functions_calls += parsed_file.total_func_calls
-
-        total_effective_lines /= self.number_of_files
-        total_number_of_functions /= self.number_of_files
-        total_mcc /= self.number_of_files
-        total_n1 /= self.number_of_files
-        total_n2 /= self.number_of_files
-        total_N1 /= self.number_of_files
-        total_N2 /= self.number_of_files
-        total_vocabulary /= self.number_of_files
-        total_length /= self.number_of_files
-        total_estimated_len /= self.number_of_files
-        total_volume /= self.number_of_files
-        total_difficulty /= self.number_of_files
-        total_level /= self.number_of_files
-        total_intelligence /= self.number_of_files
-        total_effort /= self.number_of_files
-        total_time_required /= self.number_of_files
-        total_delivered_bugs /= self.number_of_files
-        total_avg_line_volume /= self.number_of_files
-        total_cognitive_complexity /= self.number_of_files
-        total_functions_calls /= self.number_of_files
-
-        self.mean_metrics = {
-            "Mean Effective Lines": total_effective_lines,
-            "Mean Number of Functions": total_number_of_functions,
-            "Mean Total McCabe": total_mcc,
-            "Mean Number of distinct operators (n1)": total_n1,
-            "Mean Number of distinct operands (n2)": total_n2,
-            "Mean Total number of operators (N1)": total_N1,
-            "Mean Total number of operands (N2)": total_N2,
-            "Mean Vocabulary": total_vocabulary,
-            "Mean Length": total_length,
-            "Mean Estimated length": total_estimated_len,
-            "Mean Volume": total_volume,
-            "Mean Difficulty": total_difficulty,
-            "Mean Level": total_level,
-            "Mean Intelligence": total_intelligence,
-            "Mean Effort": total_effort,
-            "Mean Time Required": total_time_required,
-            "Mean Delivered bugs": total_delivered_bugs,
-            "Mean Average line volume": total_avg_line_volume,
-            "Mean Functions Call": total_functions_calls,
-            "Mean Cognitive Complexity": total_cognitive_complexity
-        }
-
-        """
-        #######################################################################
-
-
         #######################################################################
         # This implementation is slower than the previous version because for 
         # each attribute, it needs to loop through the entire list of objects.
@@ -228,8 +146,8 @@ class Compsta:
     def get_precompiled_files(self) -> list[ParsedCode]:
         """Scan the directory for `.i` files and parse them into `ParsedCode` objects.
 
-        :return: List of parsed files with extracted metrics.
-        :rtype: list[ParsedCode]
+        Returns:
+            List of parsed files with extracted metrics.
         """
         parsed_files: list[ParsedCode] = []
         for filename in listdir(self.dir_name):
@@ -247,7 +165,11 @@ class Compsta:
         return parsed_files
 
     def print_files_metrics(self) -> None:
-        """Display a formatted table of code metrics using Rich."""
+        """Display a formatted table of code metrics using Rich.
+        
+        Shows a comprehensive table with all metrics for each parsed file
+        using abbreviated column headers for better readability.
+        """
         console: Console = Console()
         title: str = f"[bold][#00ffae]{self.dir_name}[/]"
         border_style: Style = Style(color="#000000", bold=True)
@@ -310,6 +232,11 @@ class Compsta:
         console.print(table)
 
     def print_mean_metrics(self) -> None:
+        """Display a formatted table of mean metrics using Rich.
+        
+        Shows the average values of all metrics across all parsed files
+        in a clean, readable table format.
+        """
         console     : Console = Console()
         title       : str     = f"[bold][#00ffae]Average Metrics for {self.dir_name}[/]"
         border_style: Style   = Style(color="#000000", bold=True)
@@ -333,11 +260,14 @@ class Compsta:
         console.print(mean_table)
 
     def export_csv(self, dir: str, filename: str) -> None:
-        """Export metrics to a CSV file.
+        """Export individual file metrics to a CSV file.
+        
+        Creates a CSV file with detailed metrics for each parsed file,
+        including an index and filename for reference.
 
-        :param file_name: Output filename (without `.csv` extension).
-        :type file_name: str
-        :return: None
+        Args:
+            dir: Output directory path.
+            filename: Output filename without extension.
         """
         data = [self.metrics]  # Header row
         file_name: str = f"{dir}{filename}"
@@ -378,13 +308,14 @@ class Compsta:
         Console().print(f"Create CSV: {file_name}", style="bold green")
 
     def export_mean_csv(self, dir: str, filename: str) -> None:
-        """Export mean metrics to a CSV file with metrics as columns and values in one row.
+        """Export mean metrics to a CSV file with metrics as columns.
         
-        :param dir: Output directory path (should end with '/')
-        :type dir: str
-        :param filename: Output filename (without `.csv` extension)
-        :type filename: str
-        :return: None
+        Creates a CSV file where each column header is a metric name and
+        the single row contains the mean values for all metrics.
+
+        Args:
+            dir: Output directory path.
+            filename: Output filename without extension.
         """
         file_name: str = f"{dir}{filename}_mean"
         
@@ -409,8 +340,13 @@ class Compsta:
     def process_directory(base_input_dir: str, base_output_dir: str) -> None:
         """Process all exercise directories recursively and generate CSV files.
         
-        :param base_input_dir: Base directory containing the exercise folders (e.g., "./Examples/EstruturaDeDadosI/Lista02/")
-        :param base_output_dir: Base output directory for CSV files (e.g., "./csvs/EstruturaDeDadosI/Lista02/")
+        This static method walks through a directory tree, processes all
+        subdirectories containing `.i` files, and generates CSV exports
+        for each directory.
+
+        Args:
+            base_input_dir: Base directory containing the exercise folders.
+            base_output_dir: Base output directory for CSV files.
         """
         console = Console()
         
@@ -453,4 +389,3 @@ if __name__ == "__main__":
     output_base = "./csvs/"
     
     Compsta.process_directory(input_base, output_base)
-
