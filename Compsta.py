@@ -31,7 +31,7 @@ class Compsta:
         "estimated_len",
         "volume", 
         "difficulty",
-        "level",
+        "estimated_level",
         "intelligence",
         "effort",
         "time_required", 
@@ -64,7 +64,6 @@ class Compsta:
             "Estimated length",
             "Volume",
             "Difficulty",
-            "Level",
             "Intelligence",
             "Effort",
             "Time Required",
@@ -272,8 +271,9 @@ class Compsta:
         table.add_column("n", justify="left", style="#1cffa0")   # Vocabulary
         table.add_column("N", justify="left", style="#1cffa0")   # Length
         table.add_column("^N", justify="left", style="#1cffa0")  # Estimated Length
+        table.add_column("V", justify="left", style="#1cffa0")   # Program Volume
         table.add_column("D", justify="left", style="#1cffa0")   # Difficulty
-        table.add_column("L", justify="left", style="#1cffa0")   # Level
+        table.add_column("L*", justify="left", style="#1cffa0")  # Estimated level
         table.add_column("I", justify="left", style="#1cffa0")   # Intelligence
         table.add_column("E", justify="left", style="#1cffa0")   # Effort
         table.add_column("T", justify="left", style="#1cffa0")   # Time Required
@@ -295,8 +295,9 @@ class Compsta:
                 str(round(file.vocabulary)),
                 str(round(file.length)),
                 str(round(file.estimated_len)),
+                str(round(file.volume)),
                 str(round(file.difficulty)),
-                str(round(file.level)),
+                str(round(file.estimated_level)),
                 str(round(file.intelligence)),
                 str(round(file.effort)),
                 str(round(file.time_required)),
@@ -358,7 +359,7 @@ class Compsta:
                 file.estimated_len,
                 file.volume,
                 file.difficulty,
-                file.level,
+                file.estimated_level,
                 file.intelligence,
                 file.effort,
                 file.time_required,
