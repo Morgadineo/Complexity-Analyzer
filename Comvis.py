@@ -13,23 +13,54 @@ from rich             import box
 from rich.style       import Style
 
 class ParsedCode(c_ast.NodeVisitor):
-    """docstring for ParsedCode class"""
+    """A class for parsing C code files and calculating software metrics.
+    
+    This class extends pycparser's NodeVisitor to traverse the AST of C code
+    and collect various software metrics including Halstead metrics, 
+    cyclomatic complexity, and line counts.
+    
+    Attributes:
+        filename: Name of the file to be analyzed without extension.
+        file_dir: Directory path containing the source file.
+        file_fullpath: Full file path without suffix.
+        file_pre_compiled: Path to the pre-compiled file.
+        file_source: Path to the source code file.
+        has_errors: Boolean indicating if parsing encountered errors.
+        current_node_type: Type of the current node being visited.
+        current_func: Current function being processed.
+        operands: Dictionary storing operands and their occurrence lines.
+        operators: Dictionary storing operators and their occurrence lines.
+        functions: Set of Function objects representing parsed functions.
+        number_of_functions: Total count of functions in the code.
+        distict_func_calls: Set of distinct function call names.
+        total_func_calls: Total count of function calls.
+        total_mcc: Total McCabe cyclomatic complexity.
+        total_lines: Total lines in the source file.
+        effective_lines: Count of non-empty, non-comment lines.
+        Various Halstead metrics (n1, n2, N1, N2, vocabulary, length, etc.)
+        cognitive_statement_weight: Dictionary for cognitive complexity weights.
+        total_cognitive_complexity: Total cognitive complexity score.
+        ast: Abstract Syntax Tree representation of the parsed code.
+    """
+    
     def __init__(self, filename: str, file_dir: str = "Examples") -> None:
-        """
-        :param filename: Name of the file to be analyzed, without extension. 
-        :param file_dir: Path to the file_dir.
+        """Initializes the ParsedCode object and starts the parsing process.
+        
+        Args:
+            filename: Name of the file to be analyzed, without extension.
+            file_dir: Path to the directory containing the file.
         """
         #--> File <-- #########################################################
-        self.filename   : str = filename                           # Raw file name
-        self.file_dir   : str = self.treat_file_dir(file_dir)      # Dir with the source file and the pre-compiled file
-        self.file_path  : str = f"{self.file_dir}{self.filename}"  # File path without sufix
-        self.file_clean : str = f"{self.file_path}.i"              # Path to the pre-compiled file
-        self.file_source: str = f"{self.file_path}.c"              # Path to the source code
+        self.filename         : str = filename                         
+        self.file_dir         : str = self.treat_file_dir(file_dir)   
+        self.file_fullpath    : str = f"{self.file_dir}{self.filename}"
+        self.file_pre_compiled: str = f"{self.file_fullpath}.i"           
+        self.file_source      : str = f"{self.file_fullpath}.c"          
 
         #--> Global states <-- ################################################
         self.has_errors: bool = False
 
-        self.current_node_type: str      | None = None
+        self.current_node_type: str | None = None
         self.current_func: Function | None = None  
 
         ####################################################################### 
@@ -68,80 +99,66 @@ class ParsedCode(c_ast.NodeVisitor):
         self.effective_lines: int = 0
 
         #==> Halstead Metric <==#
-        self.n1            : int   = 0  # Number of distinct operators (n1).
-        self.n2            : int   = 0  # Number of distinct operands (n2).
-        self.N1            : int   = 0  # Total number of operators (N1).
-        self.N2            : int   = 0  # Total number of operands (N2).
-        self.vocabulary    : int   = 0  # Program vocabulary (n).
-        self.length        : int   = 0  # Program lenght (N).
-        self.estimated_len : float = 0  # Estimated program length (^N).
-        self.volume        : float = 0  # Volume (V).
-        self.difficulty    : float = 0  # Difficulty (D).
-        self.level         : float = 0  # Program level of abstraction. (L)
-        self.intelligence  : float = 0  # Intelligence Content. "Independet of language" (I)
-        self.effort        : float = 0  # Effort (E).
-        self.time_required : float = 0  # Time required to program (T).
-        self.delivered_bugs: float = 0  # Estimated number of bugs (B).
+        self.n1             : int   = 0  # Number of distinct operators (n1).
+        self.n2             : int   = 0  # Number of distinct operands (n2).
+        self.N1             : int   = 0  # Total number of operators (N1).
+        self.N2             : int   = 0  # Total number of operands (N2).
+        self.vocabulary     : int   = 0  # Program vocabulary (n).
+        self.length         : int   = 0  # Program lenght (N).
+        self.estimated_len  : float = 0  # Estimated program length (^N).
+        self.volume         : float = 0  # Volume (V).
+        self.difficulty     : float = 0  # Difficulty (D).
+        self.level          : float = 0  # Program level of abstraction. (L)
+        self.estimated_level: float = 0  # Estimated program level (L')
+        self.intelligence   : float = 0  # Intelligence Content. "Independet of language" (I)
+        self.effort         : float = 0  # Effort (E).
+        self.time_required  : float = 0  # Time required to program (T).
+        self.delivered_bugs : float = 0  # Estimated number of bugs (B).
 
         self.avg_line_volume: float = 0
 
-        #==> Not implemented yet <==#
-        self.cognitive_statement_weight: dict[str, int | float] = {
-            "Sequencial": 0,
-            "Break"     : 0,
-            "Continue"  : 0,
-            "Return"    : 0,
-            "If"        : 0,
-            "Switch"    : 0,
-            "If-Else"   : 0,
-            "For"       : 0,
-            "While"     : 0,
-            "Do-While"  : 0,
-            "UDF"       : 0,
-            "Recursion" : 0,
-            "Exception" : 0,
-
-        }
-        self.total_cognitive_complexity: int = 0
-
-        #--> Initialization <-- ###################################################
+        #--> Initialization <-- ###############################################
         self.run_parser()
 
         #==> Calculate Metrics <==#
 
 ##=== ===|> Methods <|=== === #################################################
 
-    def run_parser(self):
-        """
-        Method to run the parser class.
+    def run_parser(self) -> None:
+        """Runs the parser to generate AST and process the code.
+        
+        This method attempts to parse the pre-compiled file and visit all nodes
+        in the AST. If parsing fails, it sets the has_errors flag and prints
+        an error message.
         """
         try:
-            self.ast: c_ast.FileAST = parse_file(self.file_clean, use_cpp=False)
+            self.ast: c_ast.FileAST = parse_file(self.file_pre_compiled, use_cpp=False)
             self.visit(self.ast)
             self.calculate_metrics()
             self.number_of_functions = len(self.functions)
 
         except plyparser.ParseError as e:
-            Console().print(f"PARSE ERROR IN '{self.file_path}': {e} - FILE IGNORED",
+            Console().print(f"PARSE ERROR IN '{self.file_fullpath}': {e} - FILE IGNORED",
                             style="bold red")
             self.has_errors = True
 
     ## ==> Metric methods <== #############################################
 
-    def calculate_metrics(self):
-        """
-        Method to call all the others calculate metrics functions
+    def calculate_metrics(self) -> None:
+        """Calculates all software metrics for the parsed code.
+        
+        This method coordinates the calculation of line counts, Halstead metrics,
+        and McCabe cyclomatic complexity.
         """
         self.count_lines()
         self.calculate_halstead()
         self.calculate_total_McC()
 
     def count_lines(self) -> None:
-        """
-        Count the total lines and the effective lines (non-empty, not comment
-        and not only '{' or '}').
-
-        Store the total number of lines and effective in self.total_lines and self.effective_lines.
+        """Counts total lines and effective lines of code.
+        
+        Effective lines exclude empty lines, comments, and lines containing
+        only braces. Stores results in total_lines and effective_lines attributes.
         """
         with open(self.file_source) as file:
             lines            = file.readlines()
@@ -176,62 +193,57 @@ class ParsedCode(c_ast.NodeVisitor):
                 self.effective_lines += 1
 
     def calculate_halstead(self) -> None:
+        """Calculates all Halstead metrics for the parsed code.
+        
+        This method must be called after visiting the AST as it relies on
+        collected operator and operand data. Calculates vocabulary, length,
+        volume, difficulty, level, intelligence, effort, time, and bugs metrics.
         """
-        Calculate the Maurice Halstead metrics.
-
-        This method has to be called after the visit of the ast.
-        """
-        self.n1, self.N1    = self.count_total_operators()
-        self.n2, self.N2    = self.count_total_operands()
-        self.vocabulary     = self.n1 + self.n2                                  # Calculate vocabulary.
-        self.length         = self.N1 + self.N2                                  # Calculate length.
-        self.estimated_len  = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)  # Calculate estimative length.
-        self.volume         = self.length * log2(self.vocabulary)                # Calculate volume.
-        self.difficulty     = (self.n1 / 2) * (self.N2 / self.n2)                # Calculate difficulty.
-        self.level          = 1 / self.difficulty                                # Calculate program level.
-        self.intelligence   = self.level * self.volume                           # Calculate program intelligence
-        self.effort         = self.difficulty * self.volume                      # Calculate effort.
-        self.time_required  = self.effort / 18                                   # Calculate time to program (seconds).
-        self.delivered_bugs = self.effort ** (2 / 3) / 3000                      # Calculate number of delivered bugs.
+        self.n1, self.N1     = self.count_total_operators()
+        self.n2, self.N2     = self.count_total_operands()
+        self.vocabulary      = self.n1 + self.n2                                  
+        self.length          = self.N1 + self.N2                                 
+        self.estimated_len   = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)
+        self.volume          = self.length * log2(self.vocabulary)             
+        self.difficulty      = (self.n1 / 2) * (self.N2 / self.n2)            
+        self.estimated_level = 1 / self.difficulty
+        self.intelligence    = self.estimated_level * self.volume
+        self.effort          = self.difficulty * self.volume               
+        self.time_required   = self.effort / 18                           
+        self.delivered_bugs  = self.effort ** (2 / 3) / 3000             
 
         self.avg_line_volume = self.volume / self.effective_lines
 
         for function in self.functions:
             function.calculate_halstead()
 
-    def calculate_total_McC(self):
+    def calculate_total_McC(self) -> None:
+        """Calculates the total McCabe cyclomatic complexity.
+        
+        Sums the cyclomatic complexity of all functions in the code
+        and stores the result in total_mcc attribute.
         """
-        Calculate and set the total number of paths present in the code.
-        Is the sum of all functions paths and set the total_mcc variable.
-
-        """
-
         for function in self.functions:
             self.total_mcc += function.total_mcc
     
     def add_McComplexity(self) -> None:
-        """
-        Add 1 for the current function
-        ciclomatic complexity.
-
-        The add 1 to total ciclomatic complexity is needed when a function
-        is initialized, because every block has at least one path.
-
+        """Increments the cyclomatic complexity for the current function.
+        
+        Adds 1 to the current function's McCabe complexity. This is needed
+        because every function block has at least one path.
         """
         if self.current_func != None:
             self.current_func.add_McC()
 
     def append_operator(self, node: c_ast.Node) -> None:
-        """
-        Extract the operator and his line number from a node and append him as
-        a operator. If the node is inside a function node, the operator is
-        storage in the function object.
-
-        The operator dictionary stores the operator as the key and a list of
-        the ocurrence lines as the key.
-
-        :param node: The node to extract the operator and append.
-
+        """Extracts and stores an operator from a node.
+        
+        Extracts the operator and its line number from a node and stores it
+        in the operators dictionary. If inside a function, stores it in the
+        function's operator dictionary.
+        
+        Args:
+            node: The AST node to extract the operator from.
         """
         operator, line = self.extract_operator(node)
 
@@ -247,17 +259,14 @@ class ParsedCode(c_ast.NodeVisitor):
                 self.operators.update({operator: [line]})
 
     def append_operand(self, node: c_ast.Node) -> None:
-        """
-        Extract the operand from a node an adds the operand and its occurrence 
-        line to the operand dictionary.
-
-        Only Constant, ID, TypeDecl nodes can have a operand.
-
-        The operand dictionary stores the operand as the key and a list of the 
-        occurrence lines of the operator as the key.
-
-        :returns: 1 if is a valid node for a operand.
-                  0 if is not a valid node.
+        """Extracts and stores an operand from a node.
+        
+        Extracts the operand and its line number from a node and stores it
+        in the operands dictionary. Only works for Constant, ID, and TypeDecl nodes.
+        If inside a function, stores it in the function's operand dictionary.
+        
+        Args:
+            node: The AST node to extract the operand from.
         """
         operand, line = self.extract_operand(node)
 
@@ -274,10 +283,11 @@ class ParsedCode(c_ast.NodeVisitor):
 
     ## ==> Auxiliar methods <== ###############################################
 
-    def print_complexities(self):
-        """Print the code complexity table, list of operands, operators and the functions complexities.
-
-        (This function do not calculate the metrics and either generate the AST)
+    def print_complexities(self) -> None:
+        """Prints a formatted table of code complexity metrics.
+        
+        Displays Halstead metrics, cyclomatic complexity, line counts, and
+        other complexity measures in a rich formatted table.
         """
         console = Console()
     
@@ -310,7 +320,7 @@ class ParsedCode(c_ast.NodeVisitor):
         table.add_row("Estimated Length", f"{self.estimated_len:.1f}")
         table.add_row("Volume", f"{self.volume:.1f}")
         table.add_row("Difficulty", f"{self.difficulty:.1f}")
-        table.add_row("Program level", f"{self.level:.3f}")
+        table.add_row("Program estimated level", f"{self.estimated_level:.4f}")
         table.add_row("Content Intelligence", f"{self.intelligence:.1f}")
         table.add_row("Effort", f"{self.effort:.1f}")
         table.add_row("Required time to program", f"{self.time_required:.1f}")
@@ -331,12 +341,13 @@ class ParsedCode(c_ast.NodeVisitor):
         console.print(table)
 
     def count_total_operators(self) -> tuple[int, int]:
+        """Counts distinct and total operators in the code.
+        
+        Counts operators both in global scope and within functions.
+        
+        Returns:
+            A tuple containing (distinct_operators, total_operators).
         """
-        Method to count the number of distinct operators and total operators.
-
-        This method return a ordenered pair with [0] the number of distinct operators e [1] the total number of operators.
-        """
-
         distinct_operators: int = len(self.operators.keys())
         total_operators   : int = 0
 
@@ -351,10 +362,12 @@ class ParsedCode(c_ast.NodeVisitor):
         return (distinct_operators, total_operators)
 
     def count_total_operands(self) -> tuple[int, int]:
-        """
-        Method to count the number of distinct operands and total operands.
-
-        This method return a ordenered pair with [0] the number of distinct operators e [1] the total number of operands.
+        """Counts distinct and total operands in the code.
+        
+        Counts operands both in global scope and within functions.
+        
+        Returns:
+            A tuple containing (distinct_operands, total_operands).
         """
         distinct_operands: int = len(self.operands.keys())
         total_operands   : int = 0
@@ -370,21 +383,21 @@ class ParsedCode(c_ast.NodeVisitor):
         return (distinct_operands, total_operands)
 
     def initialize_function(self, func: Function) -> None:
-        """
-        Method to initialize a function in the functions dictionary.
-
-        :param node: A FuncDef node that contains the node.
+        """Adds a function to the functions set.
+        
+        Args:
+            func: The Function object to add to the functions set.
         """
         self.functions.add(func)
 
     def extract_operator(self, node: c_ast.Node) -> tuple[str, int]:
-        """
-        Extract the operator from a node and return a str with the operator
-        and the line of ocurrency.
-
-        :param node: The node to extract the operator.
-
-        :return: A tuple with the name and the line of ocurrency, respectively.
+        """Extracts the operator string and line number from a node.
+        
+        Args:
+            node: The AST node to extract the operator from.
+            
+        Returns:
+            A tuple containing (operator_string, line_number).
         """
         line     : int = self.get_node_line(node)
         node_type: str = self.get_node_type(node)
@@ -440,14 +453,13 @@ class ParsedCode(c_ast.NodeVisitor):
         return (operator, line)
 
     def extract_operand(self, node: c_ast.Node) -> tuple[str, int]:
-        """
-        Extract the operand from a node and return a tuple with the string
-        operand and the line of ocurrency.
-
-        :param node: The node to extract the operand.
-
-        :return: A tuple with the string operand and the line of ocurrency,
-                 respectively.
+        """Extracts the operand string and line number from a node.
+        
+        Args:
+            node: The AST node to extract the operand from.
+            
+        Returns:
+            A tuple containing (operand_string, line_number).
         """
         operand: str = self.get_node_value(node)
         line   : int = self.get_node_line(node)
@@ -455,7 +467,11 @@ class ParsedCode(c_ast.NodeVisitor):
         return (operand, line)
 
     def print_functions(self) -> None:
-
+        """Prints a formatted table of function-level complexity metrics.
+        
+        Displays Halstead metrics and McCabe complexity for each function
+        in the code, along with operator and operand tables for each function.
+        """
         if self.number_of_functions == 0:
             return
 
@@ -482,7 +498,7 @@ class ParsedCode(c_ast.NodeVisitor):
         table.add_column("Estimated Len", justify="right", style="#1cffa0")
         table.add_column("Volume", justify="right", style="#1cffa0")
         table.add_column("Difficulty", justify="right", style="#1cffa0")
-        table.add_column("Level", justify="right", style="#1cffa0")
+        table.add_column("Estimated Level", justify="right", style="#1cffa0")
         table.add_column("Intelligence", justify="right", style="#1cffa0")
         table.add_column("Effort", justify="right", style="#1cffa0")
         table.add_column("Time", justify="right", style="#1cffa0")
@@ -504,7 +520,7 @@ class ParsedCode(c_ast.NodeVisitor):
                 f"{function.estimated_len:.1f}",
                 f"{function.volume:.1f}",
                 f"{function.difficulty:.1f}",
-                f"{function.level:.1f}",
+                f"{function.estimated_level:.4f}",
                 f"{function.intelligence:.1f}",
                 f"{function.effort:.1f}",
                 f"{function.time_required:.1f}",
@@ -525,28 +541,26 @@ class ParsedCode(c_ast.NodeVisitor):
                                   align="left"))
 
     def show_tree(self) -> None:
-        """
-        Show the Abstract Syntax Tree.
-        """
+        """Displays the Abstract Syntax Tree with coordinate information."""
         self.ast.show(showcoord = True)
 
     ## ==> Visit nodes <== ################################################
 
     def visit_Typedef(self, node: c_ast.Typedef) -> None:
-        """
-        Method called when a Typedef keyword node is visited.
-
-        :param node: A c_ast Typedef node.
+        """Visits a Typedef node and processes it for metrics.
+        
+        Args:
+            node: A c_ast.Typedef node representing a typedef statement.
         """
         if self.is_real_node(node):
             self.append_operator(node) # Halstaed Metric
             self.append_operand(node)  # Halstead Metric
 
     def visit_Struct(self, node: c_ast.Struct) -> None:
-        """
-        Method called when a Struct statement node is visited.
+        """Visits a Struct node and processes it for metrics.
         
-        :param node: A c_ast Struct node.
+        Args:
+            node: A c_ast.Struct node representing a struct definition.
         """
         self.append_operand(node) # Halstead Metric
 
@@ -555,11 +569,13 @@ class ParsedCode(c_ast.NodeVisitor):
             self.visit(node.decls)
 
     def visit_Return(self, node: c_ast.Return) -> None:
-        """
-        Method called when a Return statement node is visited.
-        Returns are considered operators and their return as operands.
-
-        :param node: A c_ast.Return node.
+        """Visits a Return node and processes it for metrics.
+        
+        Return statements are considered operators, and their expressions
+        are considered operands.
+        
+        Args:
+            node: A c_ast.Return node representing a return statement.
         """
         self.append_operator(node) # Halstead Metric
 
@@ -569,19 +585,13 @@ class ParsedCode(c_ast.NodeVisitor):
             self.visit(node.expr)
 
     def visit_DoWhile(self, node: c_ast.DoWhile) -> None:
-        """
-        Method called when a doWhile statement node is visited.
-
-        DoWhile are considered operators.
-
-        What the method do:
-            1: Add a path to the ciclomatic complexity (McCabe Complexity).
-            2: Add the DoWhile as a operator.
-            3: Visit the conditional node.
-            4: Visit the statement node (body).
-
+        """Visits a DoWhile node and processes it for metrics.
         
-        :param node: A c_ast DoWhile statement node.
+        DoWhile statements are considered operators and contribute to
+        cyclomatic complexity.
+        
+        Args:
+            node: A c_ast.DoWhile node representing a do-while loop.
         """
         self.add_McComplexity() # McCabe Complexity
 
@@ -592,18 +602,13 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.stmt)
 
     def visit_While(self, node: c_ast.While) -> None:
-        """
-        Method called when a while statement node is visited.
-
-        While statement is considered a operator.
-
-        What the method do:
-            1: Add a path to the ciclomatic complexity (McCabe Complexity).
-            2: Add the While statement as operator.
-            3: Visit the conditional node.
-            4: Visit the statement node (body).
-
-        :param node: A c_ast While statement node.
+        """Visits a While node and processes it for metrics.
+        
+        While statements are considered operators and contribute to
+        cyclomatic complexity.
+        
+        Args:
+            node: A c_ast.While node representing a while loop.
         """
         self.add_McComplexity() # McCabe Complexity
 
@@ -614,20 +619,13 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.stmt) 
 
     def visit_For(self, node: c_ast.For) -> None:
-        """
-        Method called when a for statement node is visited.
-
-        For statement nodes are considered operators.
-
-        What the method do:
-            1: Add a path to the cicomatic complexity (McCabe Complexity).
-            2: Add the For statement as operator.
-            3: Visit the initialize.
-            4: Visit the conditional node.
-            5: Visit the next node (increment).
-            6: Visit the statement node (body).
-
-        :param node: A c_ast For statement node.
+        """Visits a For node and processes it for metrics.
+        
+        For statements are considered operators and contribute to
+        cyclomatic complexity.
+        
+        Args:
+            node: A c_ast.For node representing a for loop.
         """
         self.add_McComplexity() # McCabe Complexity
 
@@ -646,19 +644,13 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.stmt)
 
     def visit_If(self, node: c_ast.If) -> None:
-        """
-        Method called when a if node is visited.
-
-        If are considered operators.
-
-        What the method do:
-            1: Add a path to the ciclomatic complexity (McCabe Complexity).
-            2: Add the If statement as operator.
-            3: Visit the if conditional statement.
-            4: Visit the true if block.
-            5: If has a false if block, visit it.
-
-        :param node: A c_ast if statement node.
+        """Visits an If node and processes it for metrics.
+        
+        If statements are considered operators and contribute to
+        cyclomatic complexity.
+        
+        Args:
+            node: A c_ast.If node representing an if statement.
         """
         self.add_McComplexity() # McCabe Complexity
 
@@ -673,18 +665,12 @@ class ParsedCode(c_ast.NodeVisitor):
             self.visit(node.iffalse)
 
     def visit_Assignment(self, node: c_ast.Assignment) -> None:
-        """
-        Function called when a assignment node is visited.
-
-        A Assigment node is a node that have a lvalue = rvalue.
-        Assignment nodes has the '=' operator.
-
-        What the method do:
-            1: Add the assignment node as '=' operator.
-            2: Visit the lvalue.
-            3: Visit the rvalue.
-
-        :param node: A assignment node.
+        """Visits an Assignment node and processes it for metrics.
+        
+        Assignment nodes contain the '=' operator.
+        
+        Args:
+            node: A c_ast.Assignment node representing an assignment.
         """
         self.append_operator(node) # Halstead Metric
 
@@ -693,13 +679,11 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.rvalue)
 
     def visit_ArrayDecl(self, node: c_ast.ArrayDecl) -> None:
-        """
-        Method called when a ArrayDecl node is visited.
-
+        """Visits an ArrayDecl node and processes it for metrics.
         
-        :param node: A c_ast array declaration node.
+        Args:
+            node: A c_ast.ArrayDecl node representing an array declaration.
         """
-
         self.append_operator(node) # Halstead Metric
 
         #>>> Visit <<<#
@@ -709,13 +693,13 @@ class ParsedCode(c_ast.NodeVisitor):
             self.visit(node.dim)
 
     def visit_ArrayRef(self, node: c_ast.ArrayRef) -> None:
-        """
-        Function called when a arrayRef node is visited.
-
-        In ArrayRef, like 'array[i]', the '[]' are considered operators, so,
-        the expr inside the brackets and the array, are considered operands.
-
-        :param node: A arrayRef node.
+        """Visits an ArrayRef node and processes it for metrics.
+        
+        In array references like 'array[i]', the '[]' are considered operators,
+        and the array and index expressions are considered operands.
+        
+        Args:
+            node: A c_ast.ArrayRef node representing an array reference.
         """
         self.append_operator(node) # Halstead Metric
 
@@ -724,16 +708,14 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.subscript)
 
     def visit_FuncDef(self, node: c_ast.FuncDef) -> None:
-        """
-        Function called when a funcdef node is visited.
-        When a function definition is visited, the parser store what function
-        is he visiting and initialize in the dictionary. This is made for store
+        """Visits a FuncDef node and processes it for metrics.
+        
+        When a function definition is visited, the parser stores which function
+        is being visited and initializes it in the functions dictionary for
         individual function metrics.
-
-        In the pre processing, functions prototype are replaced by the func
-        definition.
-
-        :param node: A definition function node.
+        
+        Args:
+            node: A c_ast.FuncDef node representing a function definition.
         """
         function_name: str      = self.get_node_value(node)
         function     : Function = Function(function_name)
@@ -744,7 +726,13 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.body)
 
     def visit_PtrDecl(self, node: c_ast.PtrDecl) -> None:
-
+        """Visits a PtrDecl node and processes it for metrics.
+        
+        Pointer declarations contain the '*' operator.
+        
+        Args:
+            node: A c_ast.PtrDecl node representing a pointer declaration.
+        """
         #==> Append * operator <==#
         self.append_operator(node)
 
@@ -752,7 +740,13 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.type)
 
     def visit_Cast(self, node: c_ast.Cast) -> None:
-
+        """Visits a Cast node and processes it for metrics.
+        
+        Cast operations are considered operators.
+        
+        Args:
+            node: A c_ast.Cast node representing a type cast.
+        """
         self.append_operator(node)
 
         #>>> Visit <<<#
@@ -760,19 +754,14 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.expr)
 
     def visit_Decl(self, node: c_ast.Decl) -> None:
-        """
-        This function is called when a Declaration node is visited.
-        Declarations are generic nodes, so they have internal subtypes.
-
-        Types of Decl:
-        * TypeDecl: Types of variables.
-        * FuncDecl: Function declaration.
-
-        Declarations examples:
-        * Declaration of parameters: void func(int decl_var); (TypeDecl)
-        * Declaration of functions : void func_decl(int x);   (FuncDecl)
-
-        :param node: A c_ast node type.
+        """Visits a Decl node and processes it for metrics.
+        
+        Declaration nodes are generic and can have internal subtypes:
+        - TypeDecl: Variable type declarations
+        - FuncDecl: Function declarations
+        
+        Args:
+            node: A c_ast.Decl node representing a declaration.
         """
         # |> As variable DECLaration
         if self.is_real_node(node):
@@ -790,7 +779,14 @@ class ParsedCode(c_ast.NodeVisitor):
         self.current_node_type = ""
 
     def visit_TypeDecl(self, node: c_ast.TypeDecl) -> None:
-
+        """Visits a TypeDecl node and processes it for metrics.
+        
+        TypeDecl nodes represent variable type declarations and are
+        considered operands.
+        
+        Args:
+            node: A c_ast.TypeDecl node representing a type declaration.
+        """
         if node.declname == None:
             return
 
@@ -803,26 +799,33 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.type)
 
     def visit_IdentifierType(self, node: c_ast.IdentifierType) -> None:
-
-        self.append_operand(node)
+        """Visits an IdentifierType node.
+        
+        Args:
+            node: A c_ast.IdentifierType node representing an identifier type.
+        """
+        pass
 
     def visit_UnaryOp(self, node: c_ast.UnaryOp) -> None:
+        """Visits a UnaryOp node and processes it for metrics.
+        
+        Unary operators are considered operators.
+        
+        Args:
+            node: A c_ast.UnaryOp node representing a unary operation.
         """
-        This function is called when a unary operator node is visited.
-
-        :param node: A c_ast node type.
-        """
-
         self.append_operator(node) # Halstead Metric
 
         #>>> Visit <<<#
         self.visit(node.expr)
 
     def visit_BinaryOp(self, node: c_ast.BinaryOp) -> None:
-        """
-        This function is called when a binary operator node is visited.
-
-        :param node: A c_ast node type.
+        """Visits a BinaryOp node and processes it for metrics.
+        
+        Binary operators are considered operators.
+        
+        Args:
+            node: A c_ast.BinaryOp node representing a binary operation.
         """
         self.append_operator(node) # Halstead Metric
         
@@ -831,25 +834,24 @@ class ParsedCode(c_ast.NodeVisitor):
         self.visit(node.right)
 
     def visit_Constant(self, node: c_ast.Constant) -> None:
-        """
-        This function is called when a constant node is visited.
-        A constant node, is a node that represent a constant value, as a string or literal
+        """Visits a Constant node and processes it for metrics.
         
-        :param node: A c_ast node type.
-
-        """
+        Constant nodes represent literal values and are considered operands.
         
+        Args:
+            node: A c_ast.Constant node representing a constant value.
+        """
         # |=> Constant as operand:
         self.append_operand(node) # Halstead Metric
 
     def visit_FuncCall(self, node: c_ast.FuncCall) -> None:
-        """
-        This function is called when a function_call node is visited.
-
-        Function calls are considered operators and consequently, their
-        arguments are considered operands.
-
-        :param node: A function call node.
+        """Visits a FuncCall node and processes it for metrics.
+        
+        Function calls are considered operators, and their arguments
+        are considered operands.
+        
+        Args:
+            node: A c_ast.FuncCall node representing a function call.
         """
         # |> Function call as operator <|
         self.total_func_calls += 1
@@ -872,27 +874,31 @@ class ParsedCode(c_ast.NodeVisitor):
         self.current_node_type = ""
 
     def visit_ID(self, node: c_ast.ID) -> None:
-        """
-        This function is called when a ID node is visited.
-        A identifier (ID) can be the name of a function or a variable.
+        """Visits an ID node and processes it for metrics.
+        
+        Identifier nodes represent variable or function names and are
+        considered operands.
+        
+        Args:
+            node: A c_ast.ID node representing an identifier.
         """
         # |=> As operand:
         self.append_operand(node) # Halstead Metric
 
 ## ==>  Utils Node Methods <==#################################################
     def is_real_node(self, node: c_ast.Node) -> bool:
-        """
-        Determines whether a given AST node is artificially generated (fake) rather than 
-        originating from the actual C source code.
-
+        """Determines if a node comes from genuine source code.
+        
         A node is considered 'fake' when:
-        - It was inserted by preprocessor directives rather than being part of the original source
-        - It originates from pycparser's fake headers (which include artificial typedefs)
-
-        :param node: A c_ast Node to be validated.
-
-        :return: True if it comes from genuine source code
-                 False if the node is compiler-generated/injected (fake).
+        - It was inserted by preprocessor directives
+        - It originates from pycparser's fake headers (artificial typedefs)
+        
+        Args:
+            node: A c_ast.Node to be validated.
+            
+        Returns:
+            True if the node comes from genuine source code,
+            False if the node is compiler-generated/injected.
         """
         node_file: str = str(node.coord).split(":")[0]
 
@@ -903,14 +909,14 @@ class ParsedCode(c_ast.NodeVisitor):
             return False
 
     def get_node_line(self, node: c_ast.Node) -> int:
+        """Extracts the line number where a node occurs.
+        
+        Args:
+            node: The AST node to extract the line number from.
+            
+        Returns:
+            The line number where the node occurs.
         """
-        Get the node line of occurrency.
-
-        :param node: The node.
-
-        :return: The line of ocurrecy.
-        """
-
         brute_coord : str       = str(node.coord)
         sliced_coord: list[str] = brute_coord.split(":") 
 
@@ -920,23 +926,37 @@ class ParsedCode(c_ast.NodeVisitor):
         return line_coord
 
     def get_node_type(self, node: c_ast.Node) -> str:
-        """
-        Get the node type.
-
-        :param node: Node to be analyzed
-
-        :return: A string withe the node type.
+        """Gets the type name of a node.
+        
+        Args:
+            node: The AST node to get the type of.
+            
+        Returns:
+            A string representing the node type.
         """
         return node.__class__.__name__
 
     def get_node_value(self, node: c_ast.Node) -> str:
-        """Get the node object name.
-        Example: The object name of a FuncCall node, is the function 
-        called name.
-
-        :param node: The node that the name will be extracted.
-
-        :return: A string with the node name.
+        """Extracts the value/name from a node.
+        
+        For different node types, extracts appropriate values:
+        - IdentifierType: type name
+        - Typedef: typedef name
+        - Struct/ID/Decl: name
+        - FuncCall: function name
+        - Constant: constant value
+        - UnaryOp/BinaryOp/Assignment: operator
+        - TypeDecl/PtrDecl/ArrayDecl: declaration name
+        - FuncDef: function name
+        
+        Args:
+            node: The AST node to extract the value from.
+            
+        Returns:
+            A string representing the node's value/name.
+            
+        Raises:
+            ValueError: If the node type is not yet implemented.
         """
         match(self.get_node_type(node)):
 
@@ -976,16 +996,13 @@ class ParsedCode(c_ast.NodeVisitor):
 ## ==> Debug methods <==#######################################################
 
     def is_operand_parsed(self, operand: str) -> bool:
-        """
-        Debug function to verify whether a given operand was successfully parsed 
-        and added to the operands dictionary. If the operand was successfuly
-        parsed, print lines when the operad was found and return true. A empty
-        list is printed if the operand was not found and return false.
-
-        :param operand: The operand string to check for existence in the parser's dictionary.
+        """Debug function to check if an operand was successfully parsed.
         
-        :return: True if the operand was successfully identified and stored; 
-                 False if the operand was not found.
+        Args:
+            operand: The operand string to check for existence.
+            
+        Returns:
+            True if the operand was found, False otherwise.
         """
         print(f"Checking operand '{operand}' |=>", end=" ")
 
@@ -998,18 +1015,13 @@ class ParsedCode(c_ast.NodeVisitor):
             return False
 
     def is_operator_parsed(self, operator: str) -> bool:
-        """
-        Debug function to verify whether a given operator was sucessfully
-        parsed and added to the operands dictionary. If the operand was
-        successfuly parsed, print lines when the operator was found and return
-        true. A empty list is printed if the operator was not found and false 
-        is returned.
-
-        :param operator: The operator string to check for existence in 
-                         parser's dictionary.
-
-        :return: True if the operator was sucessfully identified and stored;
-                 False if the operand was not found.
+        """Debug function to check if an operator was successfully parsed.
+        
+        Args:
+            operator: The operator string to check for existence.
+            
+        Returns:
+            True if the operator was found, False otherwise.
         """
         print(f"Checking operator '{operator}' |=>", end=" ")
 
@@ -1023,16 +1035,15 @@ class ParsedCode(c_ast.NodeVisitor):
 ## ==> Treatment methods <==###################################################
 
     def treat_file_dir(self, file_dir: str) -> str:
-        """
-        Treat the dir path of the file.
-        Is commom to use './'ExampleDir/ to represent local folder, but
-        pycparser does not use in the node coords. So, to treat that, is
-        verified if the path is using ./ and remove it.
-
-        :param file_dir: The dir path to be treat (if necessary).
-
-        :return: The treated path (if the treat is necessary) or the same path
-                 (if the treat is not necessary).
+        """Treats the directory path for compatibility with pycparser.
+        
+        Removes './' prefix if present, as pycparser doesn't use it in node coordinates.
+        
+        Args:
+            file_dir: The directory path to be treated.
+            
+        Returns:
+            The treated path without './' prefix if it was present.
         """
         file_dir = file_dir.strip() # Remove left and right spaces.
 
@@ -1041,10 +1052,9 @@ class ParsedCode(c_ast.NodeVisitor):
 
         return file_dir
 
-
 if __name__ == "__main__":
-    dirs = "./Examples/EstruturaDeDadosII/Lista01/07Decomposicao/"
-    code = "mateus.f.2804@gmail.com_1_primos"
+    dirs = "./Examples/"
+    code = "article_example"
 
     code = ParsedCode(code, dirs)
 
