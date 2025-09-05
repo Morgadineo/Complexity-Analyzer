@@ -199,20 +199,29 @@ class ParsedCode(c_ast.NodeVisitor):
         collected operator and operand data. Calculates vocabulary, length,
         volume, difficulty, level, intelligence, effort, time, and bugs metrics.
         """
+        nDigits: int = 2
+
         self.n1, self.N1     = self.count_total_operators()
         self.n2, self.N2     = self.count_total_operands()
         self.vocabulary      = self.n1 + self.n2                                  
         self.length          = self.N1 + self.N2                                 
-        self.estimated_len   = self.n1 * log2(self.n1) + self.n2 * log2(self.n2)
-        self.volume          = self.length * log2(self.vocabulary)             
-        self.difficulty      = (self.n1 / 2) * (self.N2 / self.n2)            
-        self.estimated_level = 1 / self.difficulty
-        self.intelligence    = self.estimated_level * self.volume
-        self.effort          = self.difficulty * self.volume               
-        self.time_required   = self.effort / 18                           
-        self.delivered_bugs  = self.effort ** (2 / 3) / 3000             
+        self.estimated_len   = round(self.n1 * log2(self.n1) + self.n2 *
+                                     log2(self.n2), nDigits)
+        self.volume          = round(self.length * log2(self.vocabulary),
+                                     nDigits)             
+        self.difficulty      = round((self.n1 / 2) * (self.N2 / self.n2),
+                                     nDigits)
+        self.estimated_level = round(1 / self.difficulty, nDigits)
+        self.intelligence    = round(self.estimated_level * self.volume,
+                                     nDigits)
+        self.effort          = round(self.difficulty * self.volume,
+                                     nDigits)
+        self.time_required   = round(self.effort / 18, nDigits)
+        self.delivered_bugs  = round(self.effort ** (2 / 3) / 3000,
+                                     nDigits)
 
-        self.avg_line_volume = self.volume / self.effective_lines
+        self.avg_line_volume = round(self.volume / self.effective_lines,
+                                     nDigits)
 
         for function in self.functions:
             function.calculate_halstead()
