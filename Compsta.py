@@ -67,8 +67,6 @@ class Compsta:
             "Index",
             "Filename",
             "Effective Lines",
-            "Number of Functions",
-            "Total McCabe",
             "Number of distinct operators (n1)",
             "Number of distinct operands (n2)",
             "Total number of operators (N1)",
@@ -78,12 +76,15 @@ class Compsta:
             "Estimated length",
             "Volume",
             "Difficulty",
+            "Estimated level",
             "Intelligence",
             "Effort",
             "Time Required",
             "Delivered bugs",
+            "Total McCabe",
             "Average line volume",
             "Functions Call",
+            "Number of Functions",
         ]
 
         self.mean_metrics: dict[str, Any] = dict()
@@ -206,6 +207,7 @@ class Compsta:
         
 
         # Populate rows
+        nDigits: int = 2
         for file in self.parsed_files:
             table.add_row(
                 file.filename,
@@ -214,18 +216,18 @@ class Compsta:
                 str(file.n2),
                 str(file.N1),
                 str(file.N2),
-                str(round(file.vocabulary)),
-                str(round(file.length)),
-                str(round(file.estimated_len)),
-                str(round(file.volume)),
-                str(round(file.difficulty)),
-                str(round(file.estimated_level)),
-                str(round(file.intelligence)),
-                str(round(file.effort)),
-                str(round(file.time_required)),
-                str(round(file.delivered_bugs)),
+                str(round(file.vocabulary, nDigits)),
+                str(round(file.length, nDigits)),
+                str(round(file.estimated_len, nDigits)),
+                str(round(file.volume, nDigits)),
+                str(round(file.difficulty, nDigits)),
+                str(round(file.estimated_level, nDigits)),
+                str(round(file.intelligence, nDigits)),
+                str(round(file.effort, nDigits)),
+                str(round(file.time_required, nDigits)),
+                str(round(file.delivered_bugs, nDigits)),
                 str(file.total_mcc),
-                str(round(file.avg_line_volume)),
+                str(round(file.avg_line_volume, nDigits)),
                 str(file.total_func_calls),
             )
         
@@ -274,28 +276,29 @@ class Compsta:
         index = 0
 
         for file in self.parsed_files:
+            # Ordem reorganizada para seguir exatamente a mesma ordem do print
             row = [
                 index,
                 file.filename,
-                file.effective_lines,
-                file.number_of_functions,
-                file.total_mcc,
-                file.n1,
-                file.n2,
-                file.N1,
-                file.N2,
-                file.vocabulary,
-                file.length,
-                file.estimated_len,
-                file.volume,
-                file.difficulty,
-                file.estimated_level,
-                file.intelligence,
-                file.effort,
-                file.time_required,
-                file.delivered_bugs,
-                file.avg_line_volume,
-                file.total_func_calls,
+                file.effective_lines,           # EL
+                file.n1,                        # n1
+                file.n2,                        # n2
+                file.N1,                        # N1
+                file.N2,                        # N2
+                file.vocabulary,                # Vocabulary
+                file.length,                    # Length
+                file.estimated_len,             # Estimated length
+                file.volume,                    # Volume
+                file.difficulty,                # Difficulty
+                file.estimated_level,           # Estimated level
+                file.intelligence,              # Intelligence
+                file.effort,                    # Effort
+                file.time_required,             # Time Required
+                file.delivered_bugs,            # Delivered bugs
+                file.total_mcc,                 # Total McCabe (CC)
+                file.avg_line_volume,           # Average line volume (LC)
+                file.total_func_calls,          # Functions Call (FC)
+                file.number_of_functions,       # Number of Functions
             ]
             data.append(row)
             index += 1
