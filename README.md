@@ -1,4 +1,4 @@
-# Analisador de Complexidades C
+# Analisador de Complexidades C (DESATUALIZADO)
 
 Esta ferramenta foi desenvolvida para um projeto de pesquisa envolvendo análise
 de complexidade de código C. Com a falta de ferramentas pequenas, open-sources
