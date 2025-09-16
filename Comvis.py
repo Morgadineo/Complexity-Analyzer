@@ -414,6 +414,9 @@ class ParsedCode(c_ast.NodeVisitor):
 
         match(node_type):
 
+            case "StructRef":
+                operator = "->"
+
             case "Cast":
                 # Cast for a simple type
                 if isinstance(node.to_type.type.type, c_ast.IdentifierType):
@@ -554,6 +557,13 @@ class ParsedCode(c_ast.NodeVisitor):
         self.ast.show(showcoord = True)
 
     ## ==> Visit nodes <== ################################################
+
+    def visit_StructRef(self, node: c_ast.StructRef) -> None:
+
+        self.append_operator(node)
+
+        self.visit(node.name)
+        self.visit(node.field)
 
     def visit_Typedef(self, node: c_ast.Typedef) -> None:
         """Visits a Typedef node and processes it for metrics.
@@ -1062,10 +1072,12 @@ class ParsedCode(c_ast.NodeVisitor):
         return file_dir
 
 if __name__ == "__main__":
-    dirs = "./Examples/"
-    code = "article_example"
+    dirs = "./Examples/EstruturaDeDadosI/Lista02/13Biblioteca/"
+    code = "rhayssasantos787@gmail.com_1_livros"
 
     code = ParsedCode(code, dirs)
+
+    code.show_tree()
 
     if not code.has_errors:
         code.print_complexities()
