@@ -558,6 +558,9 @@ class ParsedCode(c_ast.NodeVisitor):
 
     ## ==> Visit nodes <== ################################################
 
+    def visit_FileAST(self, node: c_ast.FileAST) -> None:
+        self.visit(node.ext)
+
     def visit_StructRef(self, node: c_ast.StructRef) -> None:
 
         self.append_operator(node)
@@ -1072,12 +1075,10 @@ class ParsedCode(c_ast.NodeVisitor):
         return file_dir
 
 if __name__ == "__main__":
-    dirs = "./Examples/EstruturaDeDadosI/Lista02/13Biblioteca/"
-    code = "rhayssasantos787@gmail.com_1_livros"
+    dirs = "./Examples/"
+    code = "article_example"
 
     code = ParsedCode(code, dirs)
-
-    code.show_tree()
 
     if not code.has_errors:
         code.print_complexities()
