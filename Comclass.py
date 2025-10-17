@@ -46,12 +46,3 @@ class Comclass:
 
         Console().print(f"\nCREATE {csv_name}.csv", style="bold green")
 
-if __name__ == "__main__":
-    comclass = Comclass()
-
-    folder = "./Examples/EstruturaDeDadosI/Lista01/"
-    csv_name = "./csvs/EstruturaDeDadosI/Lista01/"
-
-
-    comclass.parse_folder(folder, csv_name)
-

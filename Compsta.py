@@ -384,11 +384,3 @@ class Compsta:
             except Exception as e:
                 console.print(f"Error processing {root}: {str(e)}", style="bold red")
 
-if __name__ == "__main__":
-    # With /
-    file_dir: str = "./Examples/"
-    
-    input_base = "./Examples/"
-    output_base = "./csvs/"
-    
-    Compsta.process_directory(input_base, output_base)

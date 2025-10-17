@@ -1,5 +1,5 @@
 # Código excluido
-C_module.py
+main.py/
 
 # Diretório com códigos para pré-compilação e uso
 Examples/
@@ -13,5 +13,3 @@ __pycache__/
 Placeholders/
 csvs/
 
-# Anotações do projeto
-*.wiki
