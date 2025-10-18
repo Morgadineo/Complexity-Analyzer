@@ -74,23 +74,49 @@ This AST-driven approach ensures:
 
     Extensibility — new metrics can be implemented by adding new visitor methods for node types.
 
-## 📈 Example Outputs
-🔹 Complexity Summary
-<!-- TODO: Insert new image link here -->
+## 📈 **Example Outputs**
 
-output
-🔹 Functions Cyclomatic Complexity
-<!-- TODO: Insert new image link here -->
+To illustrate the analysis process, the following example shows the results obtained from a **Selection Sort implementation in C**.  
+The analyzer processes the source code, builds its **AST representation**, and computes the corresponding complexity metrics.
 
-functions_output
-🔹 Operators
-<!-- TODO: Insert new image link here -->
+---
 
-operators_output
-🔹 Operands
-<!-- TODO: Insert new image link here -->
+### 🧮 **Example Source: Selection Sort (C)**
+<!-- TODO: Insert Selection Sort image or code snippet here -->
+<img width="466" height="534" alt="Captura de tela de 2025-10-17 21-08-58" src="https://github.com/user-attachments/assets/d7526dc9-5087-4eda-9c95-42d874f5f36d" />
 
-operands_output
+---
+
+### 📊 **1. Program Complexity Summary**
+Displays overall metrics of the analyzed program, including Halstead metrics, cyclomatic complexity, and line counts.
+
+<!-- TODO: Insert Complexity Summary image -->
+<img width="521" height="719" alt="Captura de tela de 2025-10-17 21-07-45" src="https://github.com/user-attachments/assets/3ead400f-aa90-4988-bc48-5602a9074dfa" />
+
+---
+
+### ⚙️ **2. Functions Cyclomatic Complexity**
+Shows the complexity calculated for each function defined in the code.
+
+<!-- TODO: Insert Functions Complexity image -->
+<img width="1882" height="188" alt="Captura de tela de 2025-10-17 21-08-01" src="https://github.com/user-attachments/assets/2129fa2d-9133-471f-80a1-9785508dde62" />
+
+---
+
+### 🧠 **3. Function Operators**
+Lists the operators identified within a selected function, as extracted from the AST traversal.
+
+<!-- TODO: Insert Operators Table image -->
+<img width="476" height="388" alt="Captura de tela de 2025-10-17 21-08-19" src="https://github.com/user-attachments/assets/edbe6f3c-268c-4d50-a660-206de6fa8a2b" />
+
+---
+
+### 🔢 **4. Function Operands**
+Lists the operands detected for the same function, including variables, constants, and function calls.
+
+<!-- TODO: Insert Operands Table image -->
+<img width="522" height="335" alt="Captura de tela de 2025-10-17 21-08-33" src="https://github.com/user-attachments/assets/58a3189c-148a-4c18-b1bb-6506a9034ad5" />
+
 ## 🧪 **Research Context**
 
 This tool was developed within a broader research initiative that investigates **static analysis of C programs** with a focus on **cognitive and structural complexity metrics**.  
